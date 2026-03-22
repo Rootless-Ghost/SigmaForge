@@ -165,7 +165,8 @@ def api_convert():
         query = SIEMConverter.convert(rule_yaml, backend)
         return jsonify({"success": True, "query": query, "backend": backend})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        logger.exception("Unexpected error while converting Sigma rule to backend '%s'.", backend)
+        return jsonify({"success": False, "error": "An internal error has occurred while converting the rule."}), 400
 
 
 @app.route("/api/library/save", methods=["POST"])
