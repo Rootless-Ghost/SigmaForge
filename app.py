@@ -281,13 +281,20 @@ def api_load_rule(filename):
 def api_delete_rule(filename):
     """Delete a rule from the library."""
     try:
-        base_dir = os.path.abspath(RULES_DIR)
-        filepath = os.path.abspath(os.path.join(base_dir, filename))
-        # Ensure the resolved path is within the rules directory to prevent path traversal
-        if os.path.commonpath([base_dir, filepath]) != base_dir:
+        # Reject absolute paths or filenames containing path separators to prevent traversal
+        if os.path.isabs(filename) or os.path.sep in filename or (os.path.altsep and os.path.altsep in filename):
             return jsonify({"success": False, "error": "Invalid filename"}), 400
-        if os.path.exists(filepath):
-            os.remove(filepath)
+
+        # Normalize the base rules directory and the target path
+        rules_base_dir = os.path.realpath(RULES_DIR)
+        safe_filepath = os.path.realpath(os.path.join(rules_base_dir, filename))
+
+        # Ensure the resolved path is within the rules directory to prevent path traversal
+        if os.path.commonpath([rules_base_dir, safe_filepath]) != rules_base_dir:
+            return jsonify({"success": False, "error": "Invalid filename"}), 400
+
+        if os.path.exists(safe_filepath):
+            os.remove(safe_filepath)
             return jsonify({"success": True, "message": f"Deleted: {filename}"})
         return jsonify({"success": False, "error": "File not found"}), 404
     except Exception as e:
