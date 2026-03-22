@@ -134,7 +134,8 @@ def api_template(template_key):
     except ValueError as e:
         return jsonify({"success": False, "error": str(e)}), 404
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        logger.exception("Unexpected error while loading template '%s'.", template_key)
+        return jsonify({"success": False, "error": "An internal error has occurred while processing the template."}), 400
 
 
 @app.route("/api/validate", methods=["POST"])
@@ -146,7 +147,8 @@ def api_validate():
         validation = SigmaValidator.validate(rule_yaml)
         return jsonify({"success": True, "validation": validation})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        logger.exception("Unexpected error while validating Sigma rule.")
+        return jsonify({"success": False, "error": "An internal error has occurred while validating the rule."}), 400
 
 
 @app.route("/api/convert", methods=["POST"])
