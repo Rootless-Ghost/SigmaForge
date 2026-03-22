@@ -147,7 +147,9 @@ def api_template(template_key):
             "mitre_info": mitre_info,
         })
     except ValueError as e:
-        return jsonify({"success": False, "error": str(e)}), 404
+        # Do not expose internal error details to the client
+        logging.warning("ValueError in api_template for key %s: %s", template_key, e)
+        return jsonify({"success": False, "error": "Template not found."}), 404
     except Exception as e:
         logging.exception("Unexpected error in api_template for key %s", template_key)
         return jsonify({"success": False, "error": "An internal error occurred while loading the template."}), 400
