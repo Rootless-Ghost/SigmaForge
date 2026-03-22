@@ -83,7 +83,11 @@ def api_generate():
             "mitre_info": mitre_info,
         })
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        app.logger.exception("Error while generating Sigma rule")
+        return jsonify({
+            "success": False,
+            "error": "An internal error occurred while generating the rule."
+        }), 400
 
 
 @app.route("/api/template/<template_key>", methods=["GET"])
