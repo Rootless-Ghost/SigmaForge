@@ -11,7 +11,7 @@
 
 A detection engineering tool for generating, validating, and converting Sigma rules to multiple SIEM query languages. Build vendor-agnostic detection rules with MITRE ATT&CK mapping and convert to **Splunk SPL**, **Elastic KQL**, **Elastic EQL**, and **Microsoft Sentinel KQL**.
 
-[Features](#features) · [Quick Start](#quick-start) · [CLI Usage](#cli-usage) · [Web UI](#web-ui) · [Templates](#pre-built-templates)
+[Features](#features) · [Screenshots](#screenshots) · [Quick Start](#quick-start) · [CLI Usage](#cli-usage) · [Web UI](#web-ui) · [Templates](#pre-built-templates)
 
 </div>
 
@@ -21,6 +21,33 @@ A detection engineering tool for generating, validating, and converting Sigma ru
 SigmaForge streamlines the detection rule authoring process by providing both a **dark-themed web interface** and a **CLI tool** for creating Sigma rules — the industry standard for vendor-agnostic SIEM detection. Write once, convert to any SIEM.
 
 Part of the **Detection Engineering Toolkit** alongside [YaraForge](https://github.com/Rootless-Ghost/YaraForge) (YARA rules) and [SnortForge](https://github.com/Rootless-Ghost/SnortForge) (Snort IDS rules).
+
+## Screenshots
+
+### Rule Builder
+*Build Sigma rules visually with MITRE ATT&CK mapping and detection logic*
+
+![Rule Builder](screenshots/SigmaForge_Rule_Builder.png)
+
+### Generated Output
+*YAML output with Splunk SPL, Elastic KQL, EQL, and Sentinel KQL conversions*
+
+![Generated Output](screenshots/SigmaForge_Generated_output.png)
+
+### Templates
+*12 pre-built detection templates covering common attack techniques*
+
+![Templates](screenshots/SigmaForge_Templates.png)
+
+### Validator
+*Paste any Sigma YAML for syntax checking and SIEM conversion*
+
+![Validator](screenshots/SigmaForge_Validator.png)
+
+### Rule Library
+*Save, load, export, and manage generated rules*
+
+![Rule Library](screenshots/SigmaForge_Rule_Library.png)
 
 ## Features
 
