@@ -15,7 +15,6 @@ A detection engineering tool for generating, validating, and converting Sigma ru
 
 </div>
 
----
 
 ## Overview
 
