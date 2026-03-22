@@ -195,7 +195,11 @@ def api_save_rule():
             "message": f"Rule saved: {filename}",
         })
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        logger.exception("Unexpected error while saving Sigma rule to library.")
+        return jsonify({
+            "success": False,
+            "error": "An internal error has occurred while saving the rule.",
+        }), 400
 
 
 @app.route("/api/library/list", methods=["GET"])
@@ -229,7 +233,11 @@ def api_list_rules():
                     })
         return jsonify({"success": True, "rules": rules})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        logger.exception("Unexpected error while listing Sigma rules from library.")
+        return jsonify({
+            "success": False,
+            "error": "An internal error has occurred while listing the rules.",
+        }), 400
 
 
 @app.route("/api/library/load/<filename>", methods=["GET"])
