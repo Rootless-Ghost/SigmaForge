@@ -233,7 +233,13 @@ def api_list_rules():
 def api_load_rule(filename):
     """Load a rule from the library."""
     try:
-        filepath = os.path.join(RULES_DIR, filename)
+        # Build normalized absolute path and ensure it stays within RULES_DIR
+        base_dir = os.path.abspath(RULES_DIR)
+        requested_path = os.path.normpath(os.path.join(base_dir, filename))
+        if not requested_path.startswith(base_dir + os.sep):
+            return jsonify({"success": False, "error": "Invalid filename"}), 400
+
+        filepath = requested_path
         if not os.path.exists(filepath):
             return jsonify({"success": False, "error": "Rule not found"}), 404
 
