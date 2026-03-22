@@ -8,12 +8,16 @@ import json
 import os
 import yaml
 from datetime import datetime
+import logging
 
 from src.sigma_engine import (
     SigmaRule, SigmaValidator, SIEMConverter,
     build_rule_from_form, build_rule_from_template,
     RULE_TEMPLATES, LOG_SOURCES, MITRE_ATTACK_MAP, TACTIC_IDS,
 )
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.urandom(24)
@@ -251,7 +255,8 @@ def api_load_rule(filename):
             "conversions": conversions,
         })
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        logger.exception("Error loading rule '%s'", filename)
+        return jsonify({"success": False, "error": "An internal error has occurred."}), 400
 
 
 @app.route("/api/library/delete/<filename>", methods=["DELETE"])
@@ -268,7 +273,8 @@ def api_delete_rule(filename):
             return jsonify({"success": True, "message": f"Deleted: {filename}"})
         return jsonify({"success": False, "error": "File not found"}), 404
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        logger.exception("Error deleting rule '%s'", filename)
+        return jsonify({"success": False, "error": "An internal error has occurred."}), 400
 
 
 @app.route("/api/library/export", methods=["GET"])
@@ -293,7 +299,8 @@ def api_export_library():
             "rules": rules,
         })
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        logger.exception("Error exporting rule library")
+        return jsonify({"success": False, "error": "An internal error has occurred."}), 400
 
 
 @app.route("/api/log-sources", methods=["GET"])
