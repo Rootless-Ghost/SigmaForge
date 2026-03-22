@@ -846,3 +846,48 @@ function showToast(message, type = 'info') {
         if (toast.parentNode) toast.remove();
     }, 3000);
 }
+
+// ── Clear Form ────────────────────────────
+function clearForm() {
+    // Metadata
+    document.getElementById('rule-title').value = '';
+    document.getElementById('rule-author').value = 'SigmaForge';
+    document.getElementById('rule-description').value = '';
+    document.getElementById('rule-level').value = 'medium';
+    document.getElementById('rule-status').value = 'experimental';
+    document.getElementById('rule-logsource').value = 'process_creation';
+
+    // MITRE
+    selectedTechniques = [];
+    updateSelectedTechniques();
+    renderMITREList();
+
+    // Detection - reset to single empty selection
+    const container = document.getElementById('selections-container');
+    container.innerHTML = '';
+    selectionCounter = 0;
+    filterCounter = 0;
+    addDetectionBlock('selection', 'selection');
+    document.getElementById('rule-condition').value = 'selection';
+
+    // Additional fields
+    document.getElementById('rule-falsepositives').value = '';
+    document.getElementById('rule-references').value = '';
+    document.getElementById('rule-fields').value = '';
+
+    // Clear output
+    document.getElementById('output-yaml').innerHTML = '<span class="placeholder">Generated rule will appear here...</span>';
+    document.getElementById('validation-status').style.display = 'none';
+    document.getElementById('mitre-info-panel').style.display = 'none';
+    document.getElementById('siem-tabs').style.display = 'none';
+    document.getElementById('siem-output').style.display = 'none';
+    document.getElementById('btn-copy-yaml').disabled = true;
+    document.getElementById('btn-save').disabled = true;
+    currentRuleYaml = '';
+    currentConversions = {};
+
+    // Update field dropdowns for new log source
+    updateAllFieldDropdowns();
+
+    showToast('Form cleared', 'info');
+}
