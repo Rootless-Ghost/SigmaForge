@@ -9,6 +9,8 @@ import json
 import os
 import yaml
 from datetime import datetime
+import logging
+import traceback
 
 from src.sigma_engine import (
     SigmaRule, SigmaValidator, SIEMConverter,
@@ -18,6 +20,9 @@ from src.sigma_engine import (
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.urandom(24)
+
+# Basic logging configuration
+logging.basicConfig(level=logging.INFO)
 
 # Rule library storage
 RULES_DIR = os.path.join(os.path.dirname(__file__), "rules")
@@ -96,7 +101,12 @@ def api_generate():
             "mitre_info": mitre_info,
         })
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        # Log full exception details server-side, but return a generic error message to the client
+        logging.exception("Error occurred while generating Sigma rule")
+        return jsonify({
+            "success": False,
+            "error": "An internal error occurred while generating the rule."
+        }), 400
 
 
 @app.route("/api/template/<template_key>", methods=["GET"])
