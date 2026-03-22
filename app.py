@@ -249,7 +249,8 @@ def api_list_rules():
                     })
         return jsonify({"success": True, "rules": rules})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        logging.exception("Unexpected error in api_list_rules")
+        return jsonify({"success": False, "error": "An internal error occurred while listing the rules."}), 400
 
 
 @app.route("/api/library/load/<filename>", methods=["GET"])
