@@ -204,6 +204,21 @@ SigmaForge/
 | **SigmaForge** | Sigma rule generation for SIEM detection | This repo |
 | **SIREN** | NIST 800-61 incident response report generator | [GitHub](https://github.com/Rootless-Ghost/SIREN) |
 
+## Roadmap
+
+**v2 — Planned**
+- Wazuh XML emitter — output native Wazuh detection rules directly from Sigma YAML
+- pySigma integration — field remapping using the pySigma library for accurate field name translation across backends
+- CrowdStrike Falcon Query Language (FQL) backend
+- QRadar AQL backend
+
+**Future Considerations**
+- REST API mode for CI/CD and SOAR pipeline integration
+- Rule performance hints (flag unbounded content matches, missing fast_pattern)
+- Field mapping profiles (Windows default, MDE schema, Elastic ECS)
+- Carbon Black (CBQL) backend
+
+
 ## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) for details.
