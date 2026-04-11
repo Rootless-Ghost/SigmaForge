@@ -322,6 +322,7 @@ WAZUH_FIELD_MAP = {
     "IntegrityLevel":    "win.eventdata.integrityLevel",
     "LogonId":           "win.eventdata.logonId",
     "CurrentDirectory":  "win.eventdata.currentDirectory",
+    "EventID":           "win.system.eventID",
 }
 
 
@@ -1188,7 +1189,7 @@ class SIEMConverter:
         tactic_tags = []
         for tag in rule.get("tags", []):
             if tag.startswith("attack.") and not re.match(r"^attack\.t\d", tag):
-                tactic_tags.append(tag.replace(".", "_"))
+                tactic_tags.append(tag.replace(".", "_").replace("-", "_"))
 
         sigma_level_tag = f"sigma_{sigma_level}"
 
