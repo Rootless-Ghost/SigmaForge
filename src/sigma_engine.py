@@ -305,6 +305,12 @@ LOG_SOURCES = {
 #       _wazuh_build_rule or the generated rules will fail to load.
 # ─────────────────────────────────────────────
 
+# ── Backend Field Maps ────────────────────────────────────────────────────────
+# Each backend has its own field map dict. A future canonical_field_map
+# (Sigma → ECS/normalized) will sit here when the normalization layer
+# is introduced. Do not add per-backend mappings after that point.
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Decoder-scoped field maps: Sigma field name → Wazuh decoder field path.
 # Keyed by the same channel-specific strings used in _DECODER_PARENT.
 # Fields absent from the active sub-map are passed through as-is;
