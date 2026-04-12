@@ -44,7 +44,7 @@ class Colors:
 def banner():
     print(f"""
 {Colors.CYAN}{Colors.BOLD}╔══════════════════════════════════════════════╗
-║           Σ  SigmaForge CLI v1.0.0           ║
+║           Σ  SigmaForge CLI v2.0.0           ║
 ║     Vendor-Agnostic Sigma Rule Generator     ║
 ╚══════════════════════════════════════════════╝{Colors.RESET}
 """)

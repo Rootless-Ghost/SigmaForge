@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![Sigma](https://img.shields.io/badge/Sigma-Detection--as--Code-06b6d4?style=flat-square)](https://sigmahq.io)
 
-A detection engineering tool for generating, validating, and converting Sigma rules to multiple SIEM query languages. Build vendor-agnostic detection rules with MITRE ATT&CK mapping and convert to **Splunk SPL**, **Elastic KQL**, **Elastic EQL**, and **Microsoft Sentinel KQL**.
+A detection engineering tool for generating, validating, and converting Sigma rules to multiple SIEM query languages. Build vendor-agnostic detection rules with MITRE ATT&CK mapping and convert to **Splunk SPL**, **Elastic KQL**, **Elastic EQL**, **Microsoft Sentinel KQL**, **Wazuh XML**, **QRadar AQL**, and **Detection-as-Code JSON**.
 
 [Features](#features) · [Screenshots](#screenshots) · [Quick Start](#quick-start) · [CLI Usage](#cli-usage) · [Web UI](#web-ui) · [Templates](#pre-built-templates)
 
@@ -30,7 +30,7 @@ Part of the **Detection Engineering Toolkit** alongside [YaraForge](https://gith
 ![Rule Builder](screenshots/SigmaForge_Rule_Builder.png)
 
 ### Generated Output
-*YAML output with Splunk SPL, Elastic KQL, EQL, and Sentinel KQL conversions*
+*YAML output with Splunk SPL, Elastic KQL, EQL, Sentinel KQL, Wazuh XML, QRadar AQL, and DaC JSON conversions*
 
 ![Generated Output](screenshots/SigmaForge_Generated_output.png)
 
@@ -52,7 +52,7 @@ Part of the **Detection Engineering Toolkit** alongside [YaraForge](https://gith
 ## Features
 
 - **Sigma Rule Generator** — Visual rule builder with detection logic, field modifiers, and boolean conditions
-- **SIEM Conversion** — Convert rules to Splunk SPL, Elastic/Lucene KQL, Elastic EQL, and Microsoft Sentinel KQL
+- **SIEM Conversion** — Convert rules to Splunk SPL, Elastic/Lucene KQL, Elastic EQL, Microsoft Sentinel KQL, Wazuh XML, QRadar AQL, and Detection-as-Code JSON
 - **MITRE ATT&CK Mapping** — Auto-tag rules with technique IDs and tactics (120+ techniques)
 - **Rule Validator** — Syntax checking against the Sigma specification
 - **Pre-built Templates** — 12 ready-to-use detection templates for common threats
@@ -129,7 +129,7 @@ python cli.py logsources
 
 The Flask-based web interface provides four main sections:
 
-- **Rule Builder** — Visual form with metadata, MITRE ATT&CK selector, detection logic builder, and live output with SIEM conversion tabs (Splunk SPL, Elastic KQL, Elastic EQL, Sentinel KQL)
+- **Rule Builder** — Visual form with metadata, MITRE ATT&CK selector, detection logic builder, and live output with SIEM conversion tabs (Splunk SPL, Elastic KQL, Elastic EQL, Sentinel KQL, Wazuh XML, QRadar AQL, DaC JSON)
 - **Templates** — Browse and load 12 pre-built detection templates covering common attack techniques
 - **Validator** — Paste any Sigma YAML and validate against the specification, then convert to SIEM queries
 - **Rule Library** — Save generated rules, load them back, export as JSON bundle
@@ -218,9 +218,7 @@ SigmaForge/
 
 ## Roadmap
 
-## Roadmap
-
-### v2 — In Progress
+### v2 — Released
 
 **Wazuh XML Backend (Phase 1 — Complete)**
 - Native Wazuh XML rule emitter added to `src/sigma_engine.py`
@@ -237,11 +235,13 @@ SigmaForge/
 - `<if_sid>` parent map audit and remap per logsource/service (Security → 63108, Sysmon → 61600, System → 60010, Linux syslog → 1002)
 - Decoder-scoped `WAZUH_FIELD_MAP` — Windows Security, Sysmon, catch-all, and Linux auth/audit/syslog sub-maps
 
+**QRadar AQL & Detection-as-Code JSON (Complete)**
+- QRadar AQL backend: full AQL query generation with logsource filtering, field mapping, wildcard/regex/exact-match handling, and multi-value `IN()` collapsing
+- Detection-as-Code JSON backend: structured JSON export preserving full detection logic, MITRE technique IDs, and metadata for CI/CD and SOAR pipeline integration
+
 **Additional Backends (Planned)**
 - CrowdStrike Falcon Query Language (FQL)
-- QRadar AQL
 - Microsoft Defender XDR Advanced Hunting (KQL / DeviceEvents schema)
-- Detection-as-Code JSON output (ECS-normalized, CI/CD and SOAR integration)
 
 ### Future Considerations
 - REST API mode for CI/CD and SOAR pipeline integration
