@@ -76,7 +76,7 @@ def api_generate():
         wazuh_rule_id    = int(data.get("rule_id",    100001))
         wazuh_group_name = str(data.get("group_name", "sigma_rules"))
         conversions = {}
-        for backend in ["splunk", "elastic", "eql", "sentinel", "wazuh"]:
+        for backend in ["splunk", "elastic", "eql", "sentinel", "wazuh", "qradar", "dac_json"]:
             try:
                 if backend == "wazuh":
                     conversions[backend] = SIEMConverter.convert(
@@ -184,7 +184,7 @@ def api_convert():
         rule_yaml = data.get("rule_yaml", "")
         backend = data.get("backend", "splunk")
 
-        if backend not in ["splunk", "elastic", "eql", "sentinel", "wazuh"]:
+        if backend not in ["splunk", "elastic", "eql", "sentinel", "wazuh", "qradar", "dac_json"]:
             return jsonify({"success": False, "error": f"Unknown backend: {backend}"}), 400
 
         if backend == "wazuh":

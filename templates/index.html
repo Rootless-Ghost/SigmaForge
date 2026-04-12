@@ -234,6 +234,8 @@
                                 <button class="output-tab" data-backend="eql">Elastic EQL</button>
                                 <button class="output-tab" data-backend="sentinel">Sentinel KQL</button>
                                 <button class="output-tab" data-backend="wazuh">Wazuh XML</button>
+                                <button class="output-tab" data-backend="qradar">QRadar AQL</button>
+                                <button class="output-tab" data-backend="dac_json">DaC JSON</button>
                             </div>
                             <div class="output-section" id="siem-output" style="display:none;">
                                 <div class="output-actions">
@@ -320,6 +322,8 @@
                                 <button class="output-tab" data-backend="eql" data-target="validator">Elastic EQL</button>
                                 <button class="output-tab" data-backend="sentinel" data-target="validator">Sentinel KQL</button>
                                 <button class="output-tab" data-backend="wazuh" data-target="validator">Wazuh XML</button>
+                                <button class="output-tab" data-backend="qradar" data-target="validator">QRadar AQL</button>
+                                <button class="output-tab" data-backend="dac_json" data-target="validator">DaC JSON</button>
                             </div>
                             <!-- Wazuh re-convert options — shown only when Wazuh tab is active -->
                             <div id="validator-wazuh-options" class="wazuh-options" style="display:none;">
@@ -368,7 +372,7 @@
     <footer class="app-footer">
         <span>SigmaForge v1.0.0</span>
         <span>•</span>
-        <span>Splunk SPL · Elastic KQL · Elastic EQL · Sentinel KQL · Wazuh XML</span>
+        <span>Splunk SPL · Elastic KQL · Elastic EQL · Sentinel KQL · Wazuh XML · QRadar AQL · DaC JSON</span>
         <span>•</span>
         <span>Built by <a href="https://github.com/Rootless-Ghost" style="color: var(--text-link); text-decoration: none;">Rootless-Ghost</a></span>
     </footer>

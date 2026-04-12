@@ -704,7 +704,7 @@ function convertFromValidator() {
     const ruleId    = parseInt(document.getElementById('validator-wazuh-rule-id').value, 10) || 100001;
     const groupName = document.getElementById('validator-wazuh-group-name').value.trim() || 'sigma_rules';
 
-    const promises = ['splunk', 'elastic', 'eql', 'sentinel', 'wazuh'].map(backend => {
+    const promises = ['splunk', 'elastic', 'eql', 'sentinel', 'wazuh', 'qradar', 'dac_json'].map(backend => {
         const body = { rule_yaml: ruleYaml, backend };
         if (backend === 'wazuh') {
             body.rule_id    = ruleId;

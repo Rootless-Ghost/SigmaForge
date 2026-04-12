@@ -389,6 +389,56 @@ WAZUH_FIELD_MAP: dict[str, dict[str, str]] = {
 
 
 # ─────────────────────────────────────────────
+# QRadar AQL Field Mapping
+# Maps Sigma field names to QRadar normalized AQL identifiers.
+# Unquoted names are QRadar built-in normalized fields.
+# Double-quoted names are custom event properties / DSM display names.
+# Fields absent from this table fall back to "FieldName" (quoted custom prop).
+# ─────────────────────────────────────────────
+
+QRADAR_FIELD_MAP = {
+    # ── Common ────────────────────────────────────────────────────────────
+    "EventID":              '"Event ID"',
+    # ── Windows Security ──────────────────────────────────────────────────
+    "TargetUserName":       "USERNAME",
+    "TargetDomainName":     '"Account Domain"',
+    "SubjectUserName":      '"Account Name"',
+    "SubjectDomainName":    '"Account Domain"',
+    "LogonType":            '"Logon Type"',
+    "IpAddress":            "SOURCEIP",
+    "IpPort":               "SOURCEPORT",
+    "WorkstationName":      '"Workstation Name"',
+    "Status":               '"Status"',
+    "SubStatus":            '"Sub Status"',
+    "ProcessName":          '"Process Name"',
+    "ServiceName":          '"Service Name"',
+    "TicketEncryptionType": '"Ticket Encryption Type"',
+    "TicketOptions":        '"Ticket Options"',
+    # ── Sysmon / process creation ─────────────────────────────────────────
+    "Image":                '"Application"',
+    "CommandLine":          '"Command"',
+    "ParentImage":          '"Parent Process Path"',
+    "ParentCommandLine":    '"Parent Command"',
+    "User":                 "USERNAME",
+    "TargetFilename":       '"Filename"',
+    "ProcessId":            '"Process ID"',
+    "ParentProcessId":      '"Parent Process ID"',
+    "OriginalFileName":     '"Original Filename"',
+    "Hashes":               '"File Hash"',
+    "IntegrityLevel":       '"Integrity Level"',
+    "CurrentDirectory":     '"Directory"',
+    "DestinationHostname":  "DESTINATIONHOSTNAME",
+    "DestinationIp":        "DESTINATIONIP",
+    "DestinationPort":      "DESTINATIONPORT",
+    "SourceIp":             "SOURCEIP",
+    "SourcePort":           "SOURCEPORT",
+    "QueryName":            '"DNS Hostname"',
+    # ── Linux ─────────────────────────────────────────────────────────────
+    "SourceIP":             "SOURCEIP",
+}
+
+
+# ─────────────────────────────────────────────
 # Pre-built Rule Templates
 # ─────────────────────────────────────────────
 
@@ -990,9 +1040,22 @@ class SIEMConverter:
                 q = SIEMConverter._eql_field_value(base_field, val_str, modifiers)
             elif backend == "wazuh":
                 q = SIEMConverter._wazuh_field_value(base_field, val_str, modifiers)
+            elif backend == "qradar":
+                q = SIEMConverter._qradar_field_value(base_field, val_str, modifiers)
             else:
                 q = f'{base_field}="{val_str}"'
             queries.append(q)
+
+        # QRadar: exact-match multi-value → IN() clause; wildcard → OR chain.
+        if backend == "qradar":
+            if len(queries) == 1:
+                return queries[0]
+            exact = not any(m in modifiers for m in ("contains", "startswith", "endswith", "re"))
+            if exact:
+                qf = QRADAR_FIELD_MAP.get(base_field, f'"{base_field}"')
+                in_vals = ", ".join(f"'{str(v).replace(chr(39), chr(39) * 2)}'" for v in values)
+                return f"{qf} IN ({in_vals})"
+            return "(" + " OR ".join(queries) + ")"
 
         # Wazuh: assemble a single <field> element; multi-value → regex alternation.
         if backend == "wazuh":
@@ -1094,6 +1157,77 @@ class SIEMConverter:
         # XML-escape so the regex is safe inside an XML element value
         regex = regex.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         return regex
+
+    @staticmethod
+    def _qradar_field_value(field: str, value: str, modifiers: list) -> str:
+        """
+        Return a complete AQL predicate fragment for a single value.
+        Field name is translated via QRADAR_FIELD_MAP; unmapped fields are
+        emitted as double-quoted custom event properties.
+        Single quotes in values are escaped as '' (standard SQL).
+        """
+        qf  = QRADAR_FIELD_MAP.get(field, f'"{field}"')
+        esc = value.replace("'", "''")
+        if "contains" in modifiers:
+            return f"{qf} ILIKE '%{esc}%'"
+        elif "startswith" in modifiers:
+            return f"{qf} ILIKE '{esc}%'"
+        elif "endswith" in modifiers:
+            return f"{qf} ILIKE '%{esc}'"
+        elif "re" in modifiers:
+            return f"{qf} MATCHES '{esc}'"
+        else:
+            return f"{qf} = '{esc}'"
+
+    @staticmethod
+    def _dac_json_build(rule: dict) -> str:
+        """
+        Produce a normalized Detection-as-Code JSON representation.
+        No query translation — structure is preserved verbatim so CI/CD
+        pipelines and SOAR platforms can consume the raw Sigma logic.
+
+        datetime.date values (YAML parses bare dates as Python date objects)
+        are serialized to ISO-format strings via the custom default handler.
+        Blank/empty top-level fields are omitted; logsource and detection
+        are always included even when sparse.
+        """
+        import json
+
+        def _default(obj):
+            if hasattr(obj, "isoformat"):
+                return obj.isoformat()
+            return str(obj)
+
+        # Extract MITRE technique IDs from tags — uppercase dot-notation
+        mitre = []
+        for tag in rule.get("tags", []):
+            if re.match(r"^attack\.t\d", tag):
+                mitre.append(tag[len("attack."):].replace("_", ".", 1).upper())
+
+        doc = {
+            "title":          rule.get("title", ""),
+            "id":             rule.get("id", ""),
+            "status":         rule.get("status", "experimental"),
+            "description":    rule.get("description", ""),
+            "author":         rule.get("author", ""),
+            "date":           rule.get("date", ""),
+            "logsource":      rule.get("logsource", {}),
+            "detection":      rule.get("detection", {}),
+            "mitre":          mitre,
+            "level":          rule.get("level", "medium"),
+            "tags":           rule.get("tags", []),
+            "falsepositives": rule.get("falsepositives", []),
+            "references":     rule.get("references", []),
+        }
+
+        # Strip blank scalars and empty collections, but never drop logsource/detection
+        always_keep = {"logsource", "detection"}
+        doc = {
+            k: v for k, v in doc.items()
+            if k in always_keep or v not in ("", [], None, {})
+        }
+
+        return json.dumps(doc, indent=2, ensure_ascii=False, default=_default)
 
     @staticmethod
     def _convert_selection(selection: dict, backend: str) -> str:
@@ -1428,9 +1562,18 @@ class SIEMConverter:
     def convert(rule_yaml: str, backend: str,
                 rule_id: int = 100001, group_name: str = "sigma_rules") -> str:
         """
-        Convert a Sigma rule YAML string to a SIEM query.
-        Backends: 'splunk', 'elastic', 'eql', 'sentinel', 'wazuh'
-        rule_id and group_name are wazuh-only kwargs (ignored by other backends).
+        Convert a Sigma rule YAML string to a SIEM query or structured output.
+
+        Backends:
+          'splunk'   — Splunk SPL
+          'elastic'  — Elastic KQL (Lucene)
+          'eql'      — Elastic EQL
+          'sentinel' — Microsoft Sentinel KQL
+          'wazuh'    — Wazuh XML rule group
+          'qradar'   — QRadar AQL  (SELECT * FROM events … LAST 24 HOURS)
+          'dac_json' — Detection-as-Code normalized JSON (no query translation)
+
+        rule_id and group_name are wazuh-only kwargs (ignored by all other backends).
         """
         rule = yaml.safe_load(rule_yaml)
 
@@ -1443,6 +1586,9 @@ class SIEMConverter:
                     f"Aggregation support is planned for a future phase."
                 )
             return SIEMConverter._wazuh_build_rule(rule, rule_id=rule_id, group_name=group_name)
+
+        if backend == "dac_json":
+            return SIEMConverter._dac_json_build(rule)
 
         detection = rule.get("detection", {})
         condition = detection.get("condition", "")
@@ -1471,6 +1617,16 @@ class SIEMConverter:
                 query = f"{source_prefix} where\n  {query}"
             elif backend == "sentinel":
                 query = f"{source_prefix}\n| where {query}"
+            elif backend == "qradar":
+                query = (
+                    f"SELECT * FROM events\n"
+                    f"WHERE {source_prefix}\n"
+                    f"  AND ({query})\n"
+                    f"LAST 24 HOURS"
+                )
+
+        if backend == "qradar" and not source_prefix:
+            query = f"SELECT * FROM events\nWHERE {query}\nLAST 24 HOURS"
 
         return query
 
@@ -1523,6 +1679,9 @@ class SIEMConverter:
         elif backend == "sentinel":
             result = result.replace(" OR ", " or ").replace(" AND ", " and ")
             result = result.replace(" NOT ", " not ")
+        elif backend == "qradar":
+            result = result.replace(" or ", " OR ").replace(" and ", " AND ")
+            result = result.replace(" not ", " NOT ")
 
         return result
 
@@ -1659,6 +1818,31 @@ class SIEMConverter:
             if product == "linux":
                 return "Syslog"
             return "CommonSecurityLog"
+
+        elif backend == "qradar":
+            # Returns a LOGSOURCEGROUPNAME predicate that is AND-ed into WHERE.
+            # Group names follow QRadar's default log source group conventions;
+            # adjust to match your deployment's actual group names.
+            ls_map = {
+                "process_creation":   "LOGSOURCEGROUPNAME = 'Windows'",
+                "dns_query":          "LOGSOURCEGROUPNAME = 'Windows'",
+                "network_connection": "LOGSOURCEGROUPNAME = 'Windows'",
+                "file_event":         "LOGSOURCEGROUPNAME = 'Windows'",
+                "registry_set":       "LOGSOURCEGROUPNAME = 'Windows'",
+                "firewall":           "LOGSOURCEGROUPNAME = 'Firewall'",
+                "proxy":              "LOGSOURCEGROUPNAME = 'Proxy'",
+            }
+            if category in ls_map:
+                return ls_map[category]
+            if product == "windows" and service == "security":
+                return "LOGSOURCEGROUPNAME = 'Microsoft Windows Security Event Log'"
+            if product == "windows" and service in ("sysmon", "system"):
+                return "LOGSOURCEGROUPNAME = 'Windows'"
+            if product == "windows":
+                return "LOGSOURCEGROUPNAME = 'Windows'"
+            if product == "linux":
+                return "LOGSOURCEGROUPNAME = 'Linux'"
+            return ""
 
         return ""
 
