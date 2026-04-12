@@ -973,11 +973,10 @@ class SigmaValidator:
         # Tags validation (ATT&CK format)
         tags = rule.get("tags", [])
         if tags:
+            _valid_tactics = {t.replace("-", "_") for t in TACTIC_IDS.keys()}
             for tag in tags:
                 if tag.startswith("attack.") and not tag.startswith("attack.t") \
-                        and tag.split(".")[-1] not in [
-                    t.replace("-", "_") for t in TACTIC_IDS.keys()
-                ]:
+                        and tag.split(".")[-1].replace("-", "_") not in _valid_tactics:
                     result["warnings"].append(f"Unrecognized ATT&CK tag: '{tag}'")
 
         # Warnings for best practices

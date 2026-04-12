@@ -7,6 +7,7 @@ from flask import Flask, render_template, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 import json
 import os
+import re
 import yaml
 from datetime import datetime
 import logging
@@ -27,6 +28,10 @@ logging.basicConfig(level=logging.INFO)
 # Rule library storage
 RULES_DIR = os.path.join(os.path.dirname(__file__), "rules")
 os.makedirs(RULES_DIR, exist_ok=True)
+
+# Input validation constants
+_MAX_RULE_YAML_BYTES = 50 * 1024  # 50 KB hard limit on rule_yaml / request body
+_SAFE_GROUP_RE = re.compile(r'^[A-Za-z0-9._-]{1,64}$')  # allowlist for Wazuh group names
 
 
 def _safe_library_path(filename: str) -> str:
@@ -65,6 +70,8 @@ def index():
 def api_generate():
     """Generate a Sigma rule from form data."""
     try:
+        if request.content_length and request.content_length > _MAX_RULE_YAML_BYTES:
+            return jsonify({"success": False, "error": "Request payload exceeds 50 KB limit."}), 400
         data = request.get_json()
         rule = build_rule_from_form(data)
         rule_yaml = rule.to_yaml()
@@ -73,8 +80,10 @@ def api_generate():
         validation = SigmaValidator.validate(rule_yaml)
 
         # Convert to all backends
-        wazuh_rule_id    = int(data.get("rule_id",    100001))
+        wazuh_rule_id    = max(1, min(999_999, int(data.get("rule_id", 100001))))
         wazuh_group_name = str(data.get("group_name", "sigma_rules"))
+        if not _SAFE_GROUP_RE.match(wazuh_group_name):
+            return jsonify({"success": False, "error": "group_name contains invalid characters (allowed: A-Z a-z 0-9 . _ -)"}), 400
         conversions = {}
         for backend in ["splunk", "elastic", "eql", "sentinel", "wazuh", "qradar", "dac_json"]:
             try:
@@ -126,9 +135,14 @@ def api_template(template_key):
 
         validation = SigmaValidator.validate(rule_yaml)
         conversions = {}
-        for backend in ["splunk", "elastic", "eql", "sentinel"]:
+        for backend in ["splunk", "elastic", "eql", "sentinel", "wazuh", "qradar", "dac_json"]:
             try:
-                conversions[backend] = SIEMConverter.convert(rule_yaml, backend)
+                if backend == "wazuh":
+                    conversions[backend] = SIEMConverter.convert(
+                        rule_yaml, backend, rule_id=100001, group_name="sigma_rules",
+                    )
+                else:
+                    conversions[backend] = SIEMConverter.convert(rule_yaml, backend)
             except Exception as e:
                 conversions[backend] = f"Conversion error: {str(e)}"
 
@@ -180,16 +194,22 @@ def api_validate():
 def api_convert():
     """Convert a Sigma rule to a specific SIEM backend."""
     try:
+        if request.content_length and request.content_length > _MAX_RULE_YAML_BYTES:
+            return jsonify({"success": False, "error": "Request payload exceeds 50 KB limit."}), 400
         data = request.get_json()
         rule_yaml = data.get("rule_yaml", "")
+        if len(rule_yaml) > _MAX_RULE_YAML_BYTES:
+            return jsonify({"success": False, "error": "rule_yaml exceeds 50 KB limit."}), 400
         backend = data.get("backend", "splunk")
 
         if backend not in ["splunk", "elastic", "eql", "sentinel", "wazuh", "qradar", "dac_json"]:
             return jsonify({"success": False, "error": f"Unknown backend: {backend}"}), 400
 
         if backend == "wazuh":
-            rule_id    = int(data.get("rule_id",    100001))
+            rule_id    = max(1, min(999_999, int(data.get("rule_id", 100001))))
             group_name = str(data.get("group_name", "sigma_rules"))
+            if not _SAFE_GROUP_RE.match(group_name):
+                return jsonify({"success": False, "error": "group_name contains invalid characters (allowed: A-Z a-z 0-9 . _ -)"}), 400
             query = SIEMConverter.convert(rule_yaml, backend,
                                           rule_id=rule_id, group_name=group_name)
         else:
@@ -282,9 +302,14 @@ def api_load_rule(filename):
 
         validation = SigmaValidator.validate(content)
         conversions = {}
-        for backend in ["splunk", "elastic", "eql", "sentinel"]:
+        for backend in ["splunk", "elastic", "eql", "sentinel", "wazuh", "qradar", "dac_json"]:
             try:
-                conversions[backend] = SIEMConverter.convert(content, backend)
+                if backend == "wazuh":
+                    conversions[backend] = SIEMConverter.convert(
+                        content, backend, rule_id=100001, group_name="sigma_rules",
+                    )
+                else:
+                    conversions[backend] = SIEMConverter.convert(content, backend)
             except Exception as e:
                 conversions[backend] = f"Conversion error: {str(e)}"
 

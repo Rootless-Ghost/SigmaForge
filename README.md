@@ -80,6 +80,18 @@ python app.py
 # Open http://localhost:5000
 ```
 
+## Deployment
+
+SigmaForge is designed for **local use** by individual analysts and detection engineers. By default the Flask development server binds to `0.0.0.0:5000` with no authentication.
+
+**Do not expose SigmaForge on a public or shared network interface without adding authentication first.** If you need to make it accessible beyond localhost, place it behind a reverse proxy (e.g. nginx, Caddy) with HTTP Basic Auth or SSO, or restrict access via VPN/firewall ACL. The rule library endpoint allows reading and writing files on disk — treat it accordingly.
+
+For strictly local use, consider changing the bind address in `app.py` to `127.0.0.1`:
+
+```python
+app.run(debug=debug_mode, host="127.0.0.1", port=5000)
+```
+
 ## CLI Usage
 
 ```bash
