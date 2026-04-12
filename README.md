@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![Sigma](https://img.shields.io/badge/Sigma-Detection--as--Code-06b6d4?style=flat-square)](https://sigmahq.io)
 
-A detection engineering tool for generating, validating, and converting Sigma rules to multiple SIEM query languages. Build vendor-agnostic detection rules with MITRE ATT&CK mapping and convert to **Splunk SPL**, **Elastic KQL**, **Elastic EQL**, **Microsoft Sentinel KQL**, **Wazuh XML**, **QRadar AQL**, and **Detection-as-Code JSON**.
+A detection engineering tool for generating, validating, and converting Sigma rules to multiple SIEM query languages. Build vendor-agnostic detection rules with MITRE ATT&CK mapping and convert to **Splunk SPL**, **Elastic KQL**, **Elastic EQL**, **Sentinel KQL**, **Wazuh XML**, **QRadar AQL**, and **Detection-as-Code JSON**.
 
 [Features](#features) · [Screenshots](#screenshots) · [Quick Start](#quick-start) · [CLI Usage](#cli-usage) · [Web UI](#web-ui) · [Templates](#pre-built-templates)
 
@@ -120,6 +120,9 @@ python cli.py convert my_rule.yml --backend splunk
 python cli.py convert my_rule.yml --backend elastic
 python cli.py convert my_rule.yml --backend eql
 python cli.py convert my_rule.yml --backend sentinel
+python cli.py convert my_rule.yml --backend wazuh --rule-id 100200 --group-name sigma_rules
+python cli.py convert my_rule.yml --backend qradar
+python cli.py convert my_rule.yml --backend dac_json
 
 # List available log sources
 python cli.py logsources
@@ -215,6 +218,7 @@ SigmaForge/
 | **SnortForge** | Snort IDS/IPS rule generation for network detection | [GitHub](https://github.com/Rootless-Ghost/SnortForge) |
 | **SigmaForge** | Sigma rule generation for SIEM detection | This repo |
 | **SIREN** | NIST 800-61 incident response report generator | [GitHub](https://github.com/Rootless-Ghost/SIREN) |
+| **EndpointForge** | Host-based endpoint monitor with Wazuh SIEM integration | [GitHub](https://github.com/Rootless-Ghost/EndpointForge) |
 
 ## Roadmap
 
