@@ -331,7 +331,7 @@ The loop:
 
 The Wazuh field maps in `WAZUH_FIELD_MAP` (`windows_sysmon`, `windows_security`, `linux_auth`, etc.) are designed to match the field paths that Wazuh decoders produce from real agent data. This means a SigmaForge-generated Wazuh rule referencing `win.eventdata.commandLine` will match actual Sysmon EventID 1 output from a Wazuh-enrolled Windows agent.
 
-Home lab target: Wazuh server at `192.168.46.100` (v4.14.4), Win11x01 agent running SwiftOnSecurity Sysmon config.
+Home lab target: Wazuh server at `<YOUR_WAZUH_IP>` (v4.14.4), Windows Agent running SwiftOnSecurity Sysmon config.
 
 ### SigmaForge ↔ SIREN (incident documentation)
 
