@@ -286,7 +286,7 @@ python cli.py logsources
 | Defense Evasion | TA0005 | T1562, T1070, T1027, T1036, T1218, T1112, T1140, T1564 |
 | Credential Access | TA0006 | T1003 (and .001–.003), T1110, T1555, T1558, T1552 |
 | Discovery | TA0007 | T1087, T1082, T1083, T1057, T1018, T1046, T1135 |
-| Lateral Movement | TA0008 | T1021 (and .001–.004, .006), T1570 |
+| Lateral Movement | TA0008 | T1021 (and .001–.004, .006), T1570 — a concrete rule for T1021.006 (WinRM child process of `wsmprovhost.exe`) ships in `rules/winrm_child_process_wsmprovhost.yml` |
 | Collection | TA0009 | T1005, T1560, T1074, T1113, T1115, T1119 |
 | Command & Control | TA0011 | T1071, T1105, T1090, T1572, T1573, T1095, T1219 |
 | Exfiltration | TA0010 | T1041, T1048, T1567, T1537 |
@@ -374,6 +374,7 @@ SigmaForge/
 │   ├── css/style.css
 │   └── js/app.js
 ├── rules/                  # Saved rule library (.yml files)
+│   └── winrm_child_process_wsmprovhost.yml  # Seed rule — T1021.006 WinRM child-process detection (process_creation, high)
 ├── SECURITY.md
 └── LICENSE
 ```
