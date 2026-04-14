@@ -15,6 +15,8 @@
 
 ## Overview
 
+</div>
+
 SigmaForge is a detection rule authoring tool that generates, validates, and converts Sigma rules to six SIEM query languages plus Detection-as-Code JSON. It ships as a Flask web UI and a standalone CLI. The conversion engine is custom-built — there is no pySigma dependency, which means the Wazuh XML backend produces valid XML out of the box (pySigma has no native Wazuh backend).
 
 **Backends** (`SIEMConverter.convert`):
