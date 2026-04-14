@@ -746,6 +746,31 @@ RULE_TEMPLATES = {
         "falsepositives": ["Authorized penetration testing"],
         "fields": ["CommandLine", "ParentImage", "User"],
     },
+    "winrm_child_process": {
+        "name": "Child Process of WinRM Provider Host (wsmprovhost.exe)",
+        "description": (
+            "Detects process creation events where the parent process is wsmprovhost.exe, "
+            "indicating that a command was executed on this host via Windows Remote Management "
+            "(WinRM / PS Remoting). Covers Sysmon EventID 1 and Windows Security EventID 4688 "
+            "by filtering both values within the process_creation log source category."
+        ),
+        "log_source": "process_creation",
+        "mitre_techniques": ["T1021.006"],
+        "level": "high",
+        "status": "experimental",
+        "detection": {
+            "selection": {
+                "EventID": [1, 4688],
+                "ParentImage|endswith": "\\wsmprovhost.exe",
+            },
+            "condition": "selection",
+        },
+        "falsepositives": [
+            "Legitimate remote administration via WinRM by IT operations staff",
+            "Authorized red team or purple team exercises using AtomicLoop",
+        ],
+        "fields": ["Image", "CommandLine", "ParentImage", "ParentCommandLine", "User"],
+    },
 }
 
 
