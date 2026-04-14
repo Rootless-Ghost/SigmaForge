@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![Sigma](https://img.shields.io/badge/Sigma-Detection--as--Code-06b6d4?style=flat-square)](https://sigmahq.io)
 
-</div>
+
 
 ---
 
