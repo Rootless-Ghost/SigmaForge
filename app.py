@@ -29,6 +29,45 @@ logging.basicConfig(level=logging.INFO)
 RULES_DIR = os.path.join(os.path.dirname(__file__), "rules")
 os.makedirs(RULES_DIR, exist_ok=True)
 
+_library_cache: list | None = None
+
+
+def _invalidate_library_cache() -> None:
+    global _library_cache
+    _library_cache = None
+
+
+def _build_library_cache() -> list:
+    global _library_cache
+    rules = []
+    for filename in sorted(os.listdir(RULES_DIR)):
+        if filename.endswith((".yml", ".yaml")):
+            filepath = os.path.join(RULES_DIR, filename)
+            with open(filepath, "r") as f:
+                content = f.read()
+            try:
+                rule_data = yaml.safe_load(content)
+                rules.append({
+                    "filename": filename,
+                    "title": rule_data.get("title", "Unknown"),
+                    "level": rule_data.get("level", "unknown"),
+                    "status": rule_data.get("status", "unknown"),
+                    "id": rule_data.get("id", ""),
+                    "description": rule_data.get("description", "")[:100],
+                    "yaml": content,
+                })
+            except yaml.YAMLError:
+                rules.append({
+                    "filename": filename,
+                    "title": filename,
+                    "level": "unknown",
+                    "status": "unknown",
+                    "error": "Failed to parse YAML",
+                })
+    _library_cache = rules
+    return _library_cache
+
+
 # Input validation constants
 _MAX_RULE_YAML_BYTES = 50 * 1024  # 50 KB hard limit on rule_yaml / request body
 _SAFE_GROUP_RE = re.compile(r'^[A-Za-z0-9._-]{1,64}$')  # allowlist for Wazuh group names
@@ -241,6 +280,7 @@ def api_save_rule():
 
         with open(filepath, "w") as f:
             f.write(rule_yaml)
+        _invalidate_library_cache()
 
         return jsonify({
             "success": True,
@@ -256,31 +296,7 @@ def api_save_rule():
 def api_list_rules():
     """List all saved rules in the library."""
     try:
-        rules = []
-        for filename in sorted(os.listdir(RULES_DIR)):
-            if filename.endswith((".yml", ".yaml")):
-                filepath = os.path.join(RULES_DIR, filename)
-                with open(filepath, "r") as f:
-                    content = f.read()
-                try:
-                    rule_data = yaml.safe_load(content)
-                    rules.append({
-                        "filename": filename,
-                        "title": rule_data.get("title", "Unknown"),
-                        "level": rule_data.get("level", "unknown"),
-                        "status": rule_data.get("status", "unknown"),
-                        "id": rule_data.get("id", ""),
-                        "description": rule_data.get("description", "")[:100],
-                        "yaml": content,
-                    })
-                except yaml.YAMLError:
-                    rules.append({
-                        "filename": filename,
-                        "title": filename,
-                        "level": "unknown",
-                        "status": "unknown",
-                        "error": "Failed to parse YAML",
-                    })
+        rules = _library_cache if _library_cache is not None else _build_library_cache()
         return jsonify({"success": True, "rules": rules})
     except Exception as e:
         logging.exception("Unexpected error in api_list_rules")
@@ -333,6 +349,7 @@ def api_delete_rule(filename):
             return jsonify({"success": False, "error": "Invalid filename"}), 400
         if os.path.exists(filepath):
             os.remove(filepath)
+            _invalidate_library_cache()
             return jsonify({"success": True, "message": f"Deleted: {filename}"})
         return jsonify({"success": False, "error": "File not found"}), 404
     except Exception as e:
@@ -344,14 +361,12 @@ def api_delete_rule(filename):
 def api_export_library():
     """Export all rules as a JSON bundle."""
     try:
+        cached = _library_cache if _library_cache is not None else _build_library_cache()
         rules = []
-        for filename in sorted(os.listdir(RULES_DIR)):
-            if filename.endswith((".yml", ".yaml")):
-                filepath = os.path.join(RULES_DIR, filename)
-                with open(filepath, "r") as f:
-                    content = f.read()
+        for entry in cached:
+            if "yaml" in entry:
                 try:
-                    rules.append(yaml.safe_load(content))
+                    rules.append(yaml.safe_load(entry["yaml"]))
                 except yaml.YAMLError:
                     pass
 
