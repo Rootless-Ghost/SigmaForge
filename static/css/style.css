@@ -430,7 +430,7 @@ select {
 
 .field-row {
     display: grid;
-    grid-template-columns: 1fr 120px 2fr 28px;
+    grid-template-columns: 160px 120px 1fr 28px;
     gap: 0.5rem;
     margin-bottom: 0.5rem;
     align-items: start;
