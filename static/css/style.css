@@ -447,6 +447,16 @@ select {
     min-height: 2rem;
 }
 
+.field-row::after {
+    content: 'drag corner to resize';
+    grid-column: 3;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1;
+    padding-top: 0.1rem;
+    pointer-events: none;
+}
+
 /* ── MITRE ATT&CK ──────────────────────── */
 
 .mitre-techniques-list {
