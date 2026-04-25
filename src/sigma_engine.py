@@ -1056,6 +1056,12 @@ class SIEMConverter:
         if not isinstance(values, list):
             values = [values]
 
+        if backend == "wazuh":
+            return SIEMConverter._wazuh_field_value(base_field, values, modifiers, negate, field_map)
+
+        if backend == "qradar":
+            return SIEMConverter._qradar_field_value(base_field, values, modifiers)
+
         queries = []
         for val in values:
             val_str = str(val)
@@ -1068,32 +1074,9 @@ class SIEMConverter:
                 q = SIEMConverter._sentinel_field_value(base_field, val_str, modifiers)
             elif backend == "eql":
                 q = SIEMConverter._eql_field_value(base_field, val_str, modifiers)
-            elif backend == "wazuh":
-                q = SIEMConverter._wazuh_field_value(base_field, val_str, modifiers)
-            elif backend == "qradar":
-                q = SIEMConverter._qradar_field_value(base_field, val_str, modifiers)
             else:
                 q = f'{base_field}="{val_str}"'
             queries.append(q)
-
-        # QRadar: exact-match multi-value → IN() clause; wildcard → OR chain.
-        if backend == "qradar":
-            if len(queries) == 1:
-                return queries[0]
-            exact = not any(m in modifiers for m in ("contains", "startswith", "endswith", "re"))
-            if exact:
-                qf = QRADAR_FIELD_MAP.get(base_field, f'"{base_field}"')
-                in_vals = ", ".join(f"'{str(v).replace(chr(39), chr(39) * 2)}'" for v in values)
-                return f"{qf} IN ({in_vals})"
-            return "(" + " OR ".join(queries) + ")"
-
-        # Wazuh: assemble a single <field> element; multi-value → regex alternation.
-        if backend == "wazuh":
-            _map = field_map if field_map is not None else {}
-            wazuh_field = _map.get(base_field, base_field)
-            negate_attr = ' negate="yes"' if negate else ""
-            regex = "|".join(f"(?:{q})" for q in queries) if len(queries) > 1 else queries[0]
-            return f'<field name="{wazuh_field}"{negate_attr}>{regex}</field>'
 
         if len(queries) == 1:
             return queries[0]
@@ -1161,53 +1144,76 @@ class SIEMConverter:
             return f'{field} == "{value}"'
 
     @staticmethod
-    def _wazuh_field_value(field: str, value: str, modifiers: list) -> str:
+    def _wazuh_field_value(field: str, values: list, modifiers: list, negate: bool = False, field_map: Optional[dict] = None) -> str:
         """
-        Return a PCRE2 regex string for use inside a Wazuh <field> element.
-        The caller (_build_field_query) wraps this in the actual XML element.
-        For the 're' modifier the value is treated as a raw regex and passed
-        through unchanged; all other modifiers apply re.escape() first.
+        Assemble a complete Wazuh <field> XML element for one or more values.
+        Multi-value lists are joined as PCRE2 alternations (regex1|regex2).
+        The negate kwarg emits negate="yes" on the element when True.
+        field_map is the decoder-scoped sub-dict from WAZUH_FIELD_MAP; unmapped
+        fields are passed through as-is.
+        For the 're' modifier values are treated as raw regexes; all other
+        modifiers apply re.escape() first.
         """
-        if "re" in modifiers:
-            regex = value
-        else:
-            regex = re.escape(value)
+        regexes = []
+        for value in values:
+            value = str(value)
+            if "re" in modifiers:
+                regex = value
+            else:
+                regex = re.escape(value)
+            # Anchor behaviour: if 're' is combined with 'startswith'/'endswith',
+            # the anchor is still applied to the raw regex — intentional, not a bug.
+            if "contains" in modifiers:
+                pass                        # Wazuh <field> matches anywhere by default
+            elif "startswith" in modifiers:
+                regex = f"^{regex}"
+            elif "endswith" in modifiers:
+                regex = f"{regex}$"
+            elif "re" not in modifiers:
+                regex = f"^{regex}$"        # exact match — fully anchored
+            # XML-escape so the regex is safe inside an XML element value
+            regex = regex.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            regexes.append(regex)
 
-        # Anchor behaviour: if 're' is combined with 'startswith'/'endswith',
-        # the anchor is still applied to the raw regex — intentional, not a bug.
-        if "contains" in modifiers:
-            pass                        # Wazuh <field> matches anywhere by default
-        elif "startswith" in modifiers:
-            regex = f"^{regex}"
-        elif "endswith" in modifiers:
-            regex = f"{regex}$"
-        elif "re" not in modifiers:
-            regex = f"^{regex}$"        # exact match — fully anchored
-
-        # XML-escape so the regex is safe inside an XML element value
-        regex = regex.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        return regex
+        regex = "|".join(f"(?:{r})" for r in regexes) if len(regexes) > 1 else regexes[0]
+        _map = field_map if field_map is not None else {}
+        wazuh_field = _map.get(field, field)
+        negate_attr = ' negate="yes"' if negate else ""
+        return f'<field name="{wazuh_field}"{negate_attr}>{regex}</field>'
 
     @staticmethod
-    def _qradar_field_value(field: str, value: str, modifiers: list) -> str:
+    def _qradar_field_value(field: str, values: list, modifiers: list) -> str:
         """
-        Return a complete AQL predicate fragment for a single value.
+        Return a complete AQL predicate for one or more values.
+        Exact-match multi-value lists use an IN() clause; wildcard/regex
+        multi-value lists fall back to an OR chain of individual predicates.
         Field name is translated via QRADAR_FIELD_MAP; unmapped fields are
         emitted as double-quoted custom event properties.
         Single quotes in values are escaped as '' (standard SQL).
         """
-        qf  = QRADAR_FIELD_MAP.get(field, f'"{field}"')
-        esc = value.replace("'", "''")
-        if "contains" in modifiers:
-            return f"{qf} ILIKE '%{esc}%'"
-        elif "startswith" in modifiers:
-            return f"{qf} ILIKE '{esc}%'"
-        elif "endswith" in modifiers:
-            return f"{qf} ILIKE '%{esc}'"
-        elif "re" in modifiers:
-            return f"{qf} MATCHES '{esc}'"
-        else:
-            return f"{qf} = '{esc}'"
+        qf = QRADAR_FIELD_MAP.get(field, f'"{field}"')
+
+        def _pred(value: str) -> str:
+            esc = value.replace("'", "''")
+            if "contains" in modifiers:
+                return f"{qf} ILIKE '%{esc}%'"
+            elif "startswith" in modifiers:
+                return f"{qf} ILIKE '{esc}%'"
+            elif "endswith" in modifiers:
+                return f"{qf} ILIKE '%{esc}'"
+            elif "re" in modifiers:
+                return f"{qf} MATCHES '{esc}'"
+            else:
+                return f"{qf} = '{esc}'"
+
+        if len(values) == 1:
+            return _pred(str(values[0]))
+
+        exact = not any(m in modifiers for m in ("contains", "startswith", "endswith", "re"))
+        if exact:
+            in_vals = ", ".join(f"'{str(v).replace(chr(39), chr(39) * 2)}'" for v in values)
+            return f"{qf} IN ({in_vals})"
+        return "(" + " OR ".join(_pred(str(v)) for v in values) + ")"
 
     @staticmethod
     def _dac_json_build(rule: dict) -> str:
