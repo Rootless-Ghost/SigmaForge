@@ -591,7 +591,8 @@ select {
     white-space: pre-wrap;
     word-break: break-word;
     color: var(--accent-cyan);
-    max-height: 400px;
+    min-height: 200px;
+    max-height: calc(100vh - 400px);
     overflow-y: auto;
 }
 
