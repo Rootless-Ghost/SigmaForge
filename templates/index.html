@@ -125,8 +125,8 @@
                         <div class="card-header">
                             <h2>Detection Logic</h2>
                             <div class="card-actions">
-                                <button class="btn btn-sm btn-accent" onclick="addSelection()">+ Selection</button>
-                                <button class="btn btn-sm btn-secondary" onclick="addFilter()">+ Filter</button>
+                                <button class="btn btn-sm btn-accent" id="btn-add-selection">+ Selection</button>
+                                <button class="btn btn-sm btn-secondary" id="btn-add-filter">+ Filter</button>
                             </div>
                         </div>
                         <div class="card-body">
@@ -136,8 +136,8 @@
                                     <div class="selection-header">
                                         <input type="text" class="selection-name" value="selection" placeholder="selection name">
                                         <span class="selection-type-badge badge-selection">SELECTION</span>
-                                        <button class="btn-icon" onclick="addFieldToSelection(this)" title="Add field">+</button>
-                                        <button class="btn-icon btn-danger" onclick="removeSelection(this)" title="Remove">×</button>
+                                        <button class="btn-icon" title="Add field">+</button>
+                                        <button class="btn-icon btn-danger" title="Remove">×</button>
                                     </div>
                                     <div class="selection-fields">
                                         <div class="field-row">
@@ -155,7 +155,7 @@
                                                 <option value="cidr">cidr</option>
                                             </select>
                                             <textarea class="field-values" rows="1" placeholder="value1, value2 (comma-separated)"></textarea>
-                                            <button class="btn-icon btn-danger" onclick="removeField(this)" title="Remove field">×</button>
+                                            <button class="btn-icon btn-danger" title="Remove field">×</button>
                                         </div>
                                     </div>
                                 </div>
@@ -191,10 +191,10 @@
                     </div>
 
                     <div class="form-row" style="gap: 0.75rem;">
-                        <button class="btn btn-primary btn-block" onclick="generateRule()">
+                        <button class="btn btn-primary btn-block" id="btn-generate-rule">
                             Generate Sigma Rule
                         </button>
-                        <button class="btn btn-secondary" onclick="clearForm()" style="white-space: nowrap;">
+                        <button class="btn btn-secondary" id="btn-clear-form" style="white-space: nowrap;">
                             Clear Form
                         </button>
                     </div>
@@ -206,8 +206,8 @@
                         <div class="card-header">
                             <h2>Generated Output</h2>
                             <div class="card-actions">
-                                <button class="btn btn-sm btn-accent" onclick="copyOutput('yaml')" id="btn-copy-yaml" disabled>Copy YAML</button>
-                                <button class="btn btn-sm btn-secondary" onclick="saveToLibrary()" id="btn-save" disabled>Save to Library</button>
+                                <button class="btn btn-sm btn-accent" id="btn-copy-yaml" disabled>Copy YAML</button>
+                                <button class="btn btn-sm btn-secondary" id="btn-save" disabled>Save to Library</button>
                             </div>
                         </div>
                         <div class="card-body">
@@ -239,7 +239,7 @@
                             </div>
                             <div class="output-section" id="siem-output" style="display:none;">
                                 <div class="output-actions">
-                                    <button class="btn btn-sm btn-secondary" onclick="copySIEMQuery()">Copy Query</button>
+                                    <button class="btn btn-sm btn-secondary" id="btn-copy-siem">Copy Query</button>
                                 </div>
                                 <!-- Wazuh re-convert options — shown only when Wazuh tab is active -->
                                 <div id="wazuh-options" class="wazuh-options" style="display:none;">
@@ -253,7 +253,7 @@
                                             <input type="text" id="wazuh-group-name" value="sigma_rules" maxlength="64">
                                         </div>
                                         <button class="btn btn-sm btn-accent wazuh-opt-apply"
-                                                onclick="applyWazuhOptions('main')">Re-convert</button>
+                                                id="btn-wazuh-main">Re-convert</button>
                                     </div>
                                 </div>
                                 <pre class="code-output" id="output-siem"></pre>
@@ -280,7 +280,7 @@
                         <span class="meta-tag mitre-tag">{{ tech }}</span>
                         {% endfor %}
                     </div>
-                    <button class="btn btn-sm btn-accent" onclick="loadTemplate('{{ key }}')">Load Template</button>
+                    <button class="btn btn-sm btn-accent">Load Template</button>
                 </div>
                 {% endfor %}
             </div>
@@ -301,8 +301,8 @@
                             <textarea id="validate-input" rows="20" class="code-input" placeholder="title: My Detection Rule&#10;id: ...&#10;logsource:&#10;    category: process_creation&#10;    product: windows&#10;detection:&#10;    selection:&#10;        Image|endswith: '\\cmd.exe'&#10;    condition: selection&#10;level: medium"></textarea>
                         </div>
                         <div class="form-row">
-                            <button class="btn btn-primary" onclick="validateRule()">Validate Rule</button>
-                            <button class="btn btn-accent" onclick="convertFromValidator()">Convert to SIEM Queries</button>
+                            <button class="btn btn-primary" id="btn-validate-rule">Validate Rule</button>
+                            <button class="btn btn-accent" id="btn-convert-validator">Convert to SIEM Queries</button>
                         </div>
                     </div>
                 </div>
@@ -337,7 +337,7 @@
                                         <input type="text" id="validator-wazuh-group-name" value="sigma_rules" maxlength="64">
                                     </div>
                                     <button class="btn btn-sm btn-accent wazuh-opt-apply"
-                                            onclick="applyWazuhOptions('validator')">Re-convert</button>
+                                            id="btn-wazuh-validator">Re-convert</button>
                                 </div>
                             </div>
                             <pre class="code-output" id="validator-siem-output"></pre>
@@ -355,8 +355,8 @@
                 <div class="card-header">
                     <h2>Saved Rules</h2>
                     <div class="card-actions">
-                        <button class="btn btn-sm btn-accent" onclick="exportLibrary()">Export All (JSON)</button>
-                        <button class="btn btn-sm btn-secondary" onclick="refreshLibrary()">Refresh</button>
+                        <button class="btn btn-sm btn-accent" id="btn-export-library">Export All (JSON)</button>
+                        <button class="btn btn-sm btn-secondary" id="btn-refresh-library">Refresh</button>
                     </div>
                 </div>
                 <div class="card-body">
@@ -384,5 +384,35 @@
         const TACTIC_IDS = {{ tactic_ids | tojson }};
     </script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        document.getElementById('btn-add-selection').addEventListener('click', addSelection);
+        document.getElementById('btn-add-filter').addEventListener('click', addFilter);
+        document.getElementById('btn-generate-rule').addEventListener('click', generateRule);
+        document.getElementById('btn-clear-form').addEventListener('click', clearForm);
+        document.getElementById('btn-copy-yaml').addEventListener('click', () => copyOutput('yaml'));
+        document.getElementById('btn-save').addEventListener('click', saveToLibrary);
+        document.getElementById('btn-copy-siem').addEventListener('click', copySIEMQuery);
+        document.getElementById('btn-wazuh-main').addEventListener('click', () => applyWazuhOptions('main'));
+        document.getElementById('btn-validate-rule').addEventListener('click', validateRule);
+        document.getElementById('btn-convert-validator').addEventListener('click', convertFromValidator);
+        document.getElementById('btn-wazuh-validator').addEventListener('click', () => applyWazuhOptions('validator'));
+        document.getElementById('btn-export-library').addEventListener('click', exportLibrary);
+        document.getElementById('btn-refresh-library').addEventListener('click', refreshLibrary);
+
+        document.getElementById('selections-container').addEventListener('click', e => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            if (btn.title === 'Add field') addFieldToSelection(btn);
+            else if (btn.title === 'Remove') removeSelection(btn);
+            else if (btn.title === 'Remove field') removeField(btn);
+        });
+
+        document.querySelector('.templates-grid').addEventListener('click', e => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const card = btn.closest('.template-card');
+            if (card) loadTemplate(card.dataset.key);
+        });
+    </script>
 </body>
 </html>
