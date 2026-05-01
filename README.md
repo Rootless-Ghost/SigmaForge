@@ -202,7 +202,16 @@ python app.py
 # Open http://localhost:5000
 ```
 
-> **Note:** Flask binds to `0.0.0.0:5000` by default. For strictly local use, change `host="0.0.0.0"` to `host="127.0.0.1"` in `app.py`. Do not expose on a shared network without adding authentication — the library endpoints read and write files on disk.
+> **Note:** Do not expose on a shared network without adding authentication — the library endpoints read and write files on disk.
+
+### Docker (standalone)
+
+```bash
+docker build -t sigmaforge .
+docker run -p 5000:5000 sigmaforge
+```
+
+Open http://localhost:5000
 
 ### CLI
 
