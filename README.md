@@ -120,7 +120,7 @@ SigmaForge/
 ├── app.py              # Flask web application and REST API
 ├── cli.py              # CLI — six subcommands
 ├── src/
-│   └── sigma_engine.py # Core engine (3,000+ lines)
+│   └── sigma_engine.py # Core engine (~2,000 lines)
 └── templates/
     └── index.html      # Single-page web UI (four tabs)
 ```
