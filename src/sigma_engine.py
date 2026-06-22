@@ -149,7 +149,6 @@ MITRE_ATTACK_MAP = {
 # Tactic ID mapping
 TACTIC_IDS = {
     "reconnaissance": "TA0043",
-    "resource-development": "TA0042",
     "initial-access": "TA0001",
     "execution": "TA0002",
     "persistence": "TA0003",
