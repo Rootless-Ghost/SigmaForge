@@ -42,7 +42,8 @@ Wazuh backend specifics). Affected templates: `windows_logon_brute_force`,
 and sourcetype names (`index=wineventlog`, `sourcetype="WinEventLog:Security"`
 for Splunk). These are defaults, not universal — adjust the prefix to match
 your environment's index naming before running. Splunk SPL output validated against Splunk Enterprise (query parses and 
-executes; index/sourcetype defaults adjusted to match environment).
+executes; index/sourcetype defaults adjusted to match environment). Wazuh XML output validated against Wazuh 4.14.4 — generated rules load and 
+parse cleanly (`wazuh-analysisd -t` exits without error).
 
 **Timeframe:** the `timeframe` field is accepted and validated but not
 enforced by any backend. Time windows must be set via the search or
