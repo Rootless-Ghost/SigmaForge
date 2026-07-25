@@ -1846,7 +1846,6 @@ class SIEMConverter:
         elif backend == "sentinel":
             count_expr = f"count({count_field})" if count_field else "count()"
             return (
-                f"// Base filter\n"
                 f"| summarize event_count = {count_expr} by {group_field}\n"
                 f"| where event_count {operator} {threshold}"
             )
