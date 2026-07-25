@@ -38,6 +38,11 @@ placeholder text; Wazuh raises `NotImplementedError` (documented below under
 Wazuh backend specifics). Affected templates: `windows_logon_brute_force`,
 `firewall_port_scan`, `brute_force_by_username`.
 
+**Index and sourcetype defaults:** generated queries use conventional index
+and sourcetype names (`index=wineventlog`, `sourcetype="WinEventLog:Security"`
+for Splunk). These are defaults, not universal — adjust the prefix to match
+your environment's index naming before running.
+
 **Timeframe:** the `timeframe` field is accepted and validated but not
 enforced by any backend. Time windows must be set via the search or
 correlation schedule in the target SIEM.
