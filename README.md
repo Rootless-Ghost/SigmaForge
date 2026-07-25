@@ -77,7 +77,7 @@ correlation schedule in the target SIEM.
 ### Templates
 *17 pre-built detection templates covering common attack techniques*
 
-![Templates](screenshots/SigmaForge_Templates_17.png)
+![Templates](screenshots/SigmaForge_Templates.png)
 
 ### Validator
 *Paste any Sigma YAML for syntax checking and SIEM conversion*
