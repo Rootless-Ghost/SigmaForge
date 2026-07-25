@@ -770,6 +770,90 @@ RULE_TEMPLATES = {
         ],
         "fields": ["Image", "CommandLine", "ParentImage", "ParentCommandLine", "User"],
     },
+    "brute_force_by_username": {
+        "name": "Brute Force - Multiple Failed Logons by User",
+        "description": "Detects 5 or more failed logon attempts (EventID 4625) for the same target user account within a 5-minute window, indicating a brute force or password guessing attack",
+        "log_source": "windows_security",
+        "mitre_techniques": ["T1110"],
+        "level": "medium",
+        "status": "experimental",
+        "detection": {
+            "selection": {
+                "EventID": 4625,
+            },
+            "timeframe": "5m",
+            "condition": "selection | count() by TargetUserName >= 5",
+        },
+        "falsepositives": [
+            "Users forgetting passwords",
+            "Misconfigured service accounts or scheduled tasks retrying with stale credentials",
+        ],
+        "fields": ["TargetUserName", "IpAddress", "LogonType", "Status", "SubStatus"],
+    },
+    "off_hours_successful_logon": {
+        "name": "Off-Hours Successful Logon",
+        "description": (
+            "Detects successful interactive or remote logons (EventID 4624) that may occur outside "
+            "normal business hours (00:00-05:00). Time-of-day is not a Sigma field condition, so this "
+            "rule matches the logon event itself; restrict it to the 00:00-05:00 window by scheduling "
+            "the search or correlation rule to run only in that window on the target SIEM."
+        ),
+        "log_source": "windows_security",
+        "mitre_techniques": ["T1078"],
+        "level": "medium",
+        "status": "experimental",
+        "detection": {
+            "selection": {
+                "EventID": 4624,
+                "LogonType": [2, 3, 7, 10, 11],
+            },
+            "condition": "selection",
+        },
+        "falsepositives": [
+            "Night-shift administrators",
+            "Scheduled maintenance windows",
+            "Follow-the-sun support teams in other time zones",
+        ],
+        "fields": ["TargetUserName", "IpAddress", "WorkstationName", "LogonType"],
+    },
+    "privilege_escalation_group_membership": {
+        "name": "Privilege Escalation via Privileged Group Membership Change",
+        "description": "Detects addition of a user to a global (4728), local (4732), or universal (4756) security-enabled group, which may indicate privilege escalation via account manipulation",
+        "log_source": "windows_security",
+        "mitre_techniques": ["T1098"],
+        "level": "high",
+        "status": "experimental",
+        "detection": {
+            "selection": {
+                "EventID": [4728, 4732, 4756],
+            },
+            "condition": "selection",
+        },
+        "falsepositives": [
+            "Legitimate IT administration adding users to privileged groups",
+            "Onboarding/offboarding automation",
+        ],
+        "fields": ["TargetUserName", "SubjectUserName", "EventID"],
+    },
+    "account_lockout": {
+        "name": "Account Lockout",
+        "description": "Detects Windows account lockout events (EventID 4740), which may indicate a brute force or password guessing attack that tripped the account lockout policy",
+        "log_source": "windows_security",
+        "mitre_techniques": ["T1110.001"],
+        "level": "low",
+        "status": "experimental",
+        "detection": {
+            "selection": {
+                "EventID": 4740,
+            },
+            "condition": "selection",
+        },
+        "falsepositives": [
+            "Users forgetting passwords",
+            "Misconfigured service accounts or scheduled tasks retrying with stale credentials",
+        ],
+        "fields": ["TargetUserName", "TargetDomainName", "SubjectUserName"],
+    },
 }
 
 
@@ -1643,6 +1727,16 @@ class SIEMConverter:
         logsource = rule.get("logsource", {})
         source_prefix = SIEMConverter._get_source_prefix(logsource, backend)
 
+        # Aggregation conditions ("selection | count(...) by field > N") make
+        # _parse_condition return a multi-line stats/summarize pipeline rather
+        # than a boolean filter. Splunk's pipeline already starts with the bare
+        # base selection query (see _build_aggregation), so prefixing "| where"
+        # onto the whole pipeline still lands the filter in the right stage.
+        # Sentinel's pipeline no longer carries the base selection query at all
+        # (dropped from _build_aggregation to avoid a duplicated "| where"), so
+        # it must be re-injected here as its own stage before the summarize.
+        is_aggregation = "|" in condition
+
         if source_prefix:
             if backend == "splunk":
                 query = f"{source_prefix}\n| where {query}"
@@ -1651,7 +1745,12 @@ class SIEMConverter:
             elif backend == "eql":
                 query = f"{source_prefix} where\n  {query}"
             elif backend == "sentinel":
-                query = f"{source_prefix}\n| where {query}"
+                if is_aggregation:
+                    sel_name = condition.split("|")[0].strip()
+                    base_query = selection_queries.get(sel_name, sel_name)
+                    query = f"{source_prefix}\n| where {base_query}\n{query}"
+                else:
+                    query = f"{source_prefix}\n| where {query}"
             elif backend == "qradar":
                 query = (
                     f"SELECT * FROM events\n"
@@ -1726,7 +1825,7 @@ class SIEMConverter:
         if backend == "splunk":
             count_expr = f"count({count_field})" if count_field else "count"
             return (
-                f"search {base_query}\n"
+                f"{base_query}\n"
                 f"| stats {count_expr} as event_count by {group_field}\n"
                 f"| where event_count {operator} {threshold}"
             )
@@ -1748,7 +1847,6 @@ class SIEMConverter:
             count_expr = f"count({count_field})" if count_field else "count()"
             return (
                 f"// Base filter\n"
-                f"| where {base_query}\n"
                 f"| summarize event_count = {count_expr} by {group_field}\n"
                 f"| where event_count {operator} {threshold}"
             )
