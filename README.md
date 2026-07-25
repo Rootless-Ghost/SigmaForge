@@ -301,6 +301,19 @@ python cli.py logsources
 
 ---
 
+## Running tests
+
+Test dependencies (pytest) are kept separate from `requirements.txt`, which is runtime-only and installed into the Docker image.
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+`tests/test_conversion.py` parametrizes every `RULE_TEMPLATES` key across all seven backends (`splunk`, `elastic`, `eql`, `sentinel`, `wazuh`, `qradar`, `dac_json`), asserting `SIEMConverter.convert()` returns a non-empty string — except Wazuh on the three aggregation-condition templates (`windows_logon_brute_force`, `firewall_port_scan`, `brute_force_by_username`), where it asserts `NotImplementedError` is raised. It also asserts every template validates via `SigmaValidator`, and locks in the aggregation-handling fix with regression checks against the Splunk/Sentinel output of those three templates.
+
+---
+
 ## MITRE ATT&CK Coverage
 
 `MITRE_ATTACK_MAP` in `sigma_engine.py` covers 110+ technique and sub-technique IDs across 13 tactics. `TACTIC_IDS` maps each tactic name to its TA number.
