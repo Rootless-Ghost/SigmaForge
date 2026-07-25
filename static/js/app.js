@@ -870,40 +870,56 @@ function exportLibrary() {
 }
 
 // ── Clipboard ─────────────────────────────
+function copyTextToClipboard(text, successMessage) {
+    if (!text) {
+        showToast('Nothing to copy', 'error');
+        return;
+    }
+
+    const fallbackCopy = () => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try {
+            ok = document.execCommand('copy');
+        } catch (err) {
+            ok = false;
+        }
+        document.body.removeChild(ta);
+        if (ok) {
+            showToast(successMessage, 'success');
+        } else {
+            showToast('Copy failed — please copy manually', 'error');
+        }
+    };
+
+    // navigator.clipboard is only defined in secure contexts (HTTPS or
+    // localhost); referencing .writeText on it elsewhere throws synchronously
+    // before any .catch() can run, so it must be feature-detected first.
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast(successMessage, 'success');
+        }).catch(fallbackCopy);
+    } else {
+        fallbackCopy();
+    }
+}
+
 function copyOutput(type) {
     let text = '';
     if (type === 'yaml') {
         text = currentRuleYaml;
     }
-    if (text) {
-        navigator.clipboard.writeText(text).then(() => {
-            showToast('Copied to clipboard', 'success');
-        }).catch(() => {
-            // Fallback
-            const ta = document.createElement('textarea');
-            ta.value = text;
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
-            showToast('Copied to clipboard', 'success');
-        });
-    }
+    copyTextToClipboard(text, 'Copied to clipboard');
 }
 
 function copySIEMQuery() {
     const text = document.getElementById('output-siem').textContent;
-    navigator.clipboard.writeText(text).then(() => {
-        showToast('SIEM query copied', 'success');
-    }).catch(() => {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        showToast('SIEM query copied', 'success');
-    });
+    copyTextToClipboard(text, 'SIEM query copied');
 }
 
 // ── Toast Notifications ──────────────────
