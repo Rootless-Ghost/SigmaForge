@@ -31,6 +31,17 @@ SigmaForge is a detection rule authoring tool that generates, validates, and con
 | `qradar` | QRadar AQL (`SELECT * FROM events … LAST 24 HOURS`) |
 | `dac_json` | Detection-as-Code normalized JSON |
 
+**Aggregation support:** Templates using aggregation conditions
+(`count() by ... > N`) emit real queries on Splunk SPL and QRadar AQL only.
+Elastic KQL and Elastic EQL do not implement aggregation and return
+placeholder text; Wazuh raises `NotImplementedError` (documented below under
+Wazuh backend specifics). Affected templates: `windows_logon_brute_force`,
+`firewall_port_scan`, `brute_force_by_username`.
+
+**Timeframe:** the `timeframe` field is accepted and validated but not
+enforced by any backend. Time windows must be set via the search or
+correlation schedule in the target SIEM.
+
 **Log sources** (`LOG_SOURCES`):
 
 | Key | Description |
