@@ -93,6 +93,27 @@ def _safe_library_path(filename: str) -> str:
     return filepath
 
 
+def _convert_backend_safe(rule_yaml: str, backend: str, **kwargs) -> str:
+    """
+    Convert rule_yaml to the given backend for display in the multi-backend
+    conversion panel, without ever putting a raw exception message into the
+    client response (CodeQL py/stack-trace-exposure).
+
+    NotImplementedError is raised deliberately by SIEMConverter for known,
+    documented syntax gaps (e.g. Wazuh's lack of aggregation-condition
+    support) and carries a message written for the end user, so it is safe
+    to surface verbatim. Any other exception is logged with a full traceback
+    server-side and replaced with a generic message client-side.
+    """
+    try:
+        return SIEMConverter.convert(rule_yaml, backend, **kwargs)
+    except NotImplementedError as e:
+        return f"Conversion error: {e}"
+    except Exception:
+        logging.exception("Unexpected error converting rule to backend %s", backend)
+        return "Conversion error: An internal error occurred while converting to this backend."
+
+
 # ─────────────────────────────────────────────
 # Web Routes
 # ─────────────────────────────────────────────
@@ -133,16 +154,13 @@ def api_generate():
             return jsonify({"success": False, "error": "group_name contains invalid characters (allowed: A-Z a-z 0-9 . _ -)"}), 400
         conversions = {}
         for backend in ["splunk", "elastic", "eql", "sentinel", "wazuh", "qradar", "dac_json"]:
-            try:
-                if backend == "wazuh":
-                    conversions[backend] = SIEMConverter.convert(
-                        rule_yaml, backend,
-                        rule_id=wazuh_rule_id, group_name=wazuh_group_name,
-                    )
-                else:
-                    conversions[backend] = SIEMConverter.convert(rule_yaml, backend)
-            except Exception as e:
-                conversions[backend] = f"Conversion error: {str(e)}"
+            if backend == "wazuh":
+                conversions[backend] = _convert_backend_safe(
+                    rule_yaml, backend,
+                    rule_id=wazuh_rule_id, group_name=wazuh_group_name,
+                )
+            else:
+                conversions[backend] = _convert_backend_safe(rule_yaml, backend)
 
         # Get MITRE info
         mitre_info = []
@@ -183,15 +201,12 @@ def api_template(template_key):
         validation = SigmaValidator.validate(rule_yaml)
         conversions = {}
         for backend in ["splunk", "elastic", "eql", "sentinel", "wazuh", "qradar", "dac_json"]:
-            try:
-                if backend == "wazuh":
-                    conversions[backend] = SIEMConverter.convert(
-                        rule_yaml, backend, rule_id=100001, group_name="sigma_rules",
-                    )
-                else:
-                    conversions[backend] = SIEMConverter.convert(rule_yaml, backend)
-            except Exception as e:
-                conversions[backend] = f"Conversion error: {str(e)}"
+            if backend == "wazuh":
+                conversions[backend] = _convert_backend_safe(
+                    rule_yaml, backend, rule_id=100001, group_name="sigma_rules",
+                )
+            else:
+                conversions[backend] = _convert_backend_safe(rule_yaml, backend)
 
         mitre_info = []
         for tech_id in rule.mitre_techniques:
@@ -327,15 +342,12 @@ def api_load_rule(filename):
         validation = SigmaValidator.validate(content)
         conversions = {}
         for backend in ["splunk", "elastic", "eql", "sentinel", "wazuh", "qradar", "dac_json"]:
-            try:
-                if backend == "wazuh":
-                    conversions[backend] = SIEMConverter.convert(
-                        content, backend, rule_id=100001, group_name="sigma_rules",
-                    )
-                else:
-                    conversions[backend] = SIEMConverter.convert(content, backend)
-            except Exception as e:
-                conversions[backend] = f"Conversion error: {str(e)}"
+            if backend == "wazuh":
+                conversions[backend] = _convert_backend_safe(
+                    content, backend, rule_id=100001, group_name="sigma_rules",
+                )
+            else:
+                conversions[backend] = _convert_backend_safe(content, backend)
 
         return jsonify({
             "success": True,
