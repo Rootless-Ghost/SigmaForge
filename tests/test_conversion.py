@@ -19,12 +19,15 @@ from src.sigma_engine import (
     SigmaValidator,
     build_rule_from_template,
 )
-from app import _convert_backend_safe
+from app import _convert_backend_safe, _wazuh_unsupported_message
 
 BACKENDS = ["splunk", "elastic", "eql", "sentinel", "wazuh", "qradar", "dac_json"]
 
 # Templates whose condition is an aggregation ("selection | count(...) by field > N").
-# Wazuh's backend does not support aggregation conditions and raises NotImplementedError.
+# Wazuh's backend does not support aggregation conditions and returns a
+# structured {"supported": False, "reason": "aggregation_condition"} result
+# instead of raising (CodeQL py/stack-trace-exposure: response text must
+# never be derived from a caught exception object).
 AGGREGATION_TEMPLATES = {
     "windows_logon_brute_force",
     "firewall_port_scan",
@@ -41,38 +44,47 @@ _RULE_YAML = {key: build_rule_from_template(key).to_yaml() for key in TEMPLATE_K
 @pytest.mark.parametrize("key", TEMPLATE_KEYS)
 def test_convert_matrix(key, backend):
     rule_yaml = _RULE_YAML[key]
-    expect_not_implemented = backend == "wazuh" and key in AGGREGATION_TEMPLATES
-
-    if expect_not_implemented:
-        with pytest.raises(NotImplementedError):
-            SIEMConverter.convert(rule_yaml, backend)
-        return
+    expect_unsupported = backend == "wazuh" and key in AGGREGATION_TEMPLATES
 
     result = SIEMConverter.convert(rule_yaml, backend)
+
+    if expect_unsupported:
+        assert isinstance(result, dict)
+        assert result.get("supported") is False
+        assert result.get("reason") == "aggregation_condition"
+        return
+
+    assert not isinstance(result, dict), (
+        f"{key!r}/{backend!r} unexpectedly returned a structured "
+        f"unsupported result: {result!r}"
+    )
     assert isinstance(result, str)
     assert result.strip() != ""
 
 
-def test_convert_backend_safe_preserves_notimplementederror_text():
-    """NotImplementedError is raised deliberately by SIEMConverter (e.g. the
-    Wazuh backend's lack of aggregation-condition support) with a message
-    written for the end user, so _convert_backend_safe() must surface it
-    verbatim rather than genericizing it."""
+def test_convert_backend_safe_uses_static_message_for_unsupported_wazuh_condition():
+    """Known Wazuh syntax gaps (e.g. aggregation conditions) are signaled by
+    SIEMConverter as a structured {"supported": False, "reason": ...} result,
+    never an exception, and _convert_backend_safe() must render the
+    corresponding STATIC message from _WAZUH_UNSUPPORTED_MESSAGES — not any
+    text derived from the rule content or a caught exception object
+    (CodeQL py/stack-trace-exposure)."""
     rule_yaml = _RULE_YAML["brute_force_by_username"]
     result = _convert_backend_safe(
         rule_yaml, "wazuh", rule_id=100001, group_name="sigma_rules"
     )
-    assert result.startswith("Conversion error:")
+    assert result == f"Conversion error: {_wazuh_unsupported_message('aggregation_condition')}"
     assert "aggregation conditions" in result
-    assert "TargetUserName" in result  # condition text from the real NotImplementedError message
+    assert "TargetUserName" not in result  # no rule-derived content in the message
 
 
 def test_convert_backend_safe_genericizes_other_exceptions(caplog):
-    """Any exception other than NotImplementedError (here: malformed YAML
-    raising a yaml.YAMLError deep in SIEMConverter.convert()) must not leak
-    its message, parser detail, or exception class name to the client — only
-    the fixed generic message, with full detail logged server-side
-    (CodeQL py/stack-trace-exposure)."""
+    """Any actual exception (here: malformed YAML raising a yaml.YAMLError
+    deep in SIEMConverter.convert()) — as opposed to the structured
+    {"supported": False, ...} result used for known Wazuh syntax gaps — must
+    not leak its message, parser detail, or exception class name to the
+    client. Only the fixed generic message reaches the response, with full
+    detail logged server-side (CodeQL py/stack-trace-exposure)."""
     with caplog.at_level(logging.ERROR):
         result = _convert_backend_safe("not: [valid yaml structure", "splunk")
 
@@ -119,15 +131,21 @@ def test_sentinel_aggregation_has_no_orphan_comment_or_duplicate_where(key):
         )
 
 
-def test_validator_surfaces_yaml_parse_error_text():
-    """Intentional behavior, not a bug: CodeQL py/stack-trace-exposure alert #24
-    on app.py's /api/validate route was dismissed because that endpoint exists
-    specifically so a user can paste arbitrary Sigma YAML and be told why it
-    fails to parse. SigmaValidator.validate() deliberately includes the
-    yaml.YAMLError text in its errors list for exactly this reason — lock it
-    in so a future "fix" for the CodeQL alert doesn't quietly break it."""
+def test_validator_yaml_parse_error_is_static_not_exception_derived():
+    """CodeQL py/stack-trace-exposure alerts #23/#25/#26 flagged the SUCCESS
+    return path in app.py because SigmaValidator.validate()'s result (which
+    is always included in those responses) embedded str(e) from the caught
+    yaml.YAMLError. The previous "alert #24 dismissed" design (surfacing the
+    raw yaml.YAMLError text) is superseded: the validator must now build its
+    own static parse-failure message and never reach into the exception
+    object, so no yaml library/module/parser detail can reach an HTTP
+    response."""
     malformed_yaml = "title: Broken Rule\ndetection: [unclosed\n"
     result = SigmaValidator.validate(malformed_yaml)
 
     assert result["valid"] is False
     assert any("YAML parse error" in err for err in result["errors"])
+    joined_errors = " ".join(result["errors"])
+    assert "yaml." not in joined_errors.lower()
+    assert "line " not in joined_errors.lower()
+    assert "column" not in joined_errors.lower()

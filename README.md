@@ -34,8 +34,9 @@ SigmaForge is a detection rule authoring tool that generates, validates, and con
 **Aggregation support:** Templates using aggregation conditions
 (`count() by ... > N`) emit real queries on Splunk SPL and QRadar AQL only.
 Elastic KQL and Elastic EQL do not implement aggregation and return
-placeholder text; Wazuh raises `NotImplementedError` (documented below under
-Wazuh backend specifics). Affected templates: `windows_logon_brute_force`,
+placeholder text; Wazuh returns a structured `{"supported": False, "reason":
+"aggregation_condition"}` result instead of a query string (documented below
+under Wazuh backend specifics). Affected templates: `windows_logon_brute_force`,
 `firewall_port_scan`, `brute_force_by_username`.
 
 **Index and sourcetype defaults:** generated queries use conventional index
@@ -164,7 +165,7 @@ Methods:
 - Valid field modifiers: `contains`, `startswith`, `endswith`, `base64`, `base64offset`, `utf16le`, `utf16be`, `wide`, `re`, `cidr`, `all`, `gt`, `gte`, `lt`, `lte`, `fieldref`, `expand`, `windash`
 
 **`SIEMConverter` (static)**
-- `convert(rule_yaml, backend, rule_id=100001, group_name="sigma_rules") → str`
+- `convert(rule_yaml, backend, rule_id=100001, group_name="sigma_rules") → str | dict` — `dict` only for the wazuh backend's known-unsupported cases (`{"supported": False, "reason": <code>}`)
 - `_build_field_query(field_name, values, backend, negate, field_map)` — translates a single field with modifiers to the backend's syntax
 - `_parse_condition(condition, selections, backend)` — resolves selection references, handles boolean operators and aggregation conditions (`count() by field > N`)
 - `_build_aggregation(base_query, count_field, group_field, operator, threshold, backend)` — generates `stats`/`summarize`/aggregation syntax per backend
@@ -174,7 +175,7 @@ Methods:
 - `WAZUH_FIELD_MAP` — decoder-scoped field maps: `windows_security`, `windows_sysmon`, `windows_eventchannel`, `linux_auth`, `linux_audit`, `linux_syslog`
 - Emits `<group>` → `<rule>` → `<field>` elements; OR conditions produce multiple `<rule>` siblings; NOT conditions produce `negate="yes"` on `<field>`
 - `<mitre><id>` block requires Wazuh 4.2+
-- Aggregation conditions (conditions containing `|`) raise `NotImplementedError` — Wazuh does not support them natively
+- Aggregation conditions (conditions containing `|`), parenthesised sub-expressions, and conditions resolving to no field selections are not supported natively — `convert()` returns `{"supported": False, "reason": <code>}` instead of a query string, and `app.py`/`cli.py` map the reason code to a static, human-written message (never exception text — see CodeQL py/stack-trace-exposure)
 - `rule_id` clamped to `1–999,999`; `group_name` validated against `^[A-Za-z0-9._-]{1,64}$`
 
 **Helper functions:**
@@ -310,7 +311,7 @@ pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-`tests/test_conversion.py` parametrizes every `RULE_TEMPLATES` key across all seven backends (`splunk`, `elastic`, `eql`, `sentinel`, `wazuh`, `qradar`, `dac_json`), asserting `SIEMConverter.convert()` returns a non-empty string — except Wazuh on the three aggregation-condition templates (`windows_logon_brute_force`, `firewall_port_scan`, `brute_force_by_username`), where it asserts `NotImplementedError` is raised. It also asserts every template validates via `SigmaValidator`, and locks in the aggregation-handling fix with regression checks against the Splunk/Sentinel output of those three templates.
+`tests/test_conversion.py` parametrizes every `RULE_TEMPLATES` key across all seven backends (`splunk`, `elastic`, `eql`, `sentinel`, `wazuh`, `qradar`, `dac_json`), asserting `SIEMConverter.convert()` returns a non-empty string — except Wazuh on the three aggregation-condition templates (`windows_logon_brute_force`, `firewall_port_scan`, `brute_force_by_username`), where it asserts a `{"supported": False, "reason": "aggregation_condition"}` result is returned instead. It also asserts every template validates via `SigmaValidator`, and locks in the aggregation-handling fix with regression checks against the Splunk/Sentinel output of those three templates.
 
 ---
 

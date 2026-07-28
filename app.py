@@ -93,25 +93,56 @@ def _safe_library_path(filename: str) -> str:
     return filepath
 
 
+# Static, human-written explanations for known Wazuh backend syntax gaps.
+# SIEMConverter.convert()/_wazuh_build_rule() return {"supported": False,
+# "reason": <key>} for these cases instead of raising, so the text shown to
+# the user always comes from this literal dict — never from an exception
+# object (CodeQL py/stack-trace-exposure).
+_WAZUH_UNSUPPORTED_MESSAGES = {
+    "aggregation_condition": (
+        "Wazuh backend does not support aggregation conditions "
+        "(e.g. 'selection | count() by field > N'). "
+        "Aggregation support is planned for a future phase."
+    ),
+    "parenthesized_condition": (
+        "Wazuh backend (Phase 1) does not support parenthesised "
+        "sub-expressions. Rewrite the condition as a flat AND/OR/NOT expression."
+    ),
+    "no_field_selection": (
+        "Wazuh backend: the condition did not resolve to explicit field "
+        "selections (e.g. '1 of selection*' or 'all of them' are not "
+        "supported). Use explicit selection names."
+    ),
+    "_default": "Wazuh backend cannot convert this rule due to unsupported condition syntax.",
+}
+
+
+def _wazuh_unsupported_message(reason: str) -> str:
+    return _WAZUH_UNSUPPORTED_MESSAGES.get(reason, _WAZUH_UNSUPPORTED_MESSAGES["_default"])
+
+
 def _convert_backend_safe(rule_yaml: str, backend: str, **kwargs) -> str:
     """
     Convert rule_yaml to the given backend for display in the multi-backend
     conversion panel, without ever putting a raw exception message into the
     client response (CodeQL py/stack-trace-exposure).
 
-    NotImplementedError is raised deliberately by SIEMConverter for known,
-    documented syntax gaps (e.g. Wazuh's lack of aggregation-condition
-    support) and carries a message written for the end user, so it is safe
-    to surface verbatim. Any other exception is logged with a full traceback
+    Known, documented syntax gaps (e.g. Wazuh's lack of aggregation-condition
+    support) are signaled by SIEMConverter as a structured
+    {"supported": False, "reason": ...} result, not an exception, and are
+    rendered here from the static _WAZUH_UNSUPPORTED_MESSAGES dict. Any
+    genuinely unexpected exception is logged with a full traceback
     server-side and replaced with a generic message client-side.
     """
     try:
-        return SIEMConverter.convert(rule_yaml, backend, **kwargs)
-    except NotImplementedError as e:
-        return f"Conversion error: {e}"
+        result = SIEMConverter.convert(rule_yaml, backend, **kwargs)
     except Exception:
         logging.exception("Unexpected error converting rule to backend %s", backend)
         return "Conversion error: An internal error occurred while converting to this backend."
+
+    if isinstance(result, dict) and result.get("supported") is False:
+        return f"Conversion error: {_wazuh_unsupported_message(result.get('reason'))}"
+    return result
 
 
 # ─────────────────────────────────────────────
@@ -276,6 +307,13 @@ def api_convert():
                                           rule_id=rule_id, group_name=group_name)
         else:
             query = SIEMConverter.convert(rule_yaml, backend)
+
+        if isinstance(query, dict) and query.get("supported") is False:
+            return jsonify({
+                "success": False,
+                "error": _wazuh_unsupported_message(query.get("reason")),
+            }), 400
+
         return jsonify({"success": True, "query": query, "backend": backend})
     except Exception as e:
         logging.exception("Unexpected error in api_convert for backend %s", backend)

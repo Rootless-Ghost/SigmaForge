@@ -990,9 +990,12 @@ class SigmaValidator:
         # Parse YAML
         try:
             rule = yaml.safe_load(rule_yaml)
-        except yaml.YAMLError as e:
+        except yaml.YAMLError:
             result["valid"] = False
-            result["errors"].append(f"YAML parse error: {str(e)}")
+            result["errors"].append(
+                "YAML parse error: the rule document could not be parsed. "
+                "Check indentation, colons after keys, and matching brackets/quotes."
+            )
             return result
 
         if not isinstance(rule, dict):
@@ -1396,13 +1399,16 @@ class SIEMConverter:
         rule: dict,
         rule_id: int = 100001,
         group_name: str = "sigma_rules",
-    ) -> str:
+    ) -> str | dict:
         """
         Assemble a Wazuh XML rule group from a parsed Sigma rule dict.
         OR conditions produce multiple <rule> elements (one per branch);
         AND/NOT conditions produce a single <rule> with negated <field> elements.
-        Phase 1 supports flat AND/OR/NOT conditions only — parenthesised
-        sub-expressions (other than a single outer wrapper) raise NotImplementedError.
+        Phase 1 supports flat AND/OR/NOT conditions only — unsupported syntax
+        (parenthesised sub-expressions, or a condition that resolves to no
+        field selections) returns {"supported": False, "reason": ...} instead
+        of raising, so callers never have to derive user-facing text from an
+        exception object (CodeQL py/stack-trace-exposure).
         """
 
         # ── Helpers ───────────────────────────────────────────────────────
@@ -1549,11 +1555,7 @@ class SIEMConverter:
         # Phase 1 supports flat AND/OR/NOT only.
         condition_stripped = _unwrap(condition.strip())
         if "(" in condition_stripped or ")" in condition_stripped:
-            raise NotImplementedError(
-                f"Wazuh backend (Phase 1) does not support parenthesised "
-                f"sub-expressions: {condition!r}. "
-                f"Rewrite as a flat AND/OR/NOT condition."
-            )
+            return {"supported": False, "reason": "parenthesized_condition"}
 
         or_branches = _split_top(condition_stripped, "or")
         branch_specs = []
@@ -1613,11 +1615,7 @@ class SIEMConverter:
             # Guard: a branch with no positive or negative selections means
             # the condition used unsupported syntax (1 of selection*, all of them, etc.)
             if not spec["positives"] and not spec["negatives"]:
-                raise NotImplementedError(
-                    f"Wazuh backend: condition branch produced no field selections "
-                    f"from condition {condition!r}. Unsupported syntax — likely "
-                    f"'1 of selection*' or 'all of them'. Use explicit selection names."
-                )
+                return {"supported": False, "reason": "no_field_selection"}
 
             rid = rule_id + i
             label_parts = [n for n, _ in spec["positives"]]
@@ -1679,7 +1677,7 @@ class SIEMConverter:
 
     @staticmethod
     def convert(rule_yaml: str, backend: str,
-                rule_id: int = 100001, group_name: str = "sigma_rules") -> str:
+                rule_id: int = 100001, group_name: str = "sigma_rules") -> str | dict:
         """
         Convert a Sigma rule YAML string to a SIEM query or structured output.
 
@@ -1693,17 +1691,20 @@ class SIEMConverter:
           'dac_json' — Detection-as-Code normalized JSON (no query translation)
 
         rule_id and group_name are wazuh-only kwargs (ignored by all other backends).
+
+        Returns a query string on success. For the wazuh backend, known
+        unsupported condition syntax (aggregation conditions, parenthesised
+        sub-expressions, conditions with no resolvable field selections)
+        returns {"supported": False, "reason": <code>} instead of raising —
+        callers map the reason code to a static, human-written message
+        (see app.py) rather than deriving response text from an exception.
         """
         rule = yaml.safe_load(rule_yaml)
 
         if backend == "wazuh":
             _condition = rule.get("detection", {}).get("condition", "")
             if "|" in _condition:
-                raise NotImplementedError(
-                    f"Wazuh backend does not support aggregation conditions "
-                    f"(condition contains '|'): {_condition!r}. "
-                    f"Aggregation support is planned for a future phase."
-                )
+                return {"supported": False, "reason": "aggregation_condition"}
             return SIEMConverter._wazuh_build_rule(rule, rule_id=rule_id, group_name=group_name)
 
         if backend == "dac_json":

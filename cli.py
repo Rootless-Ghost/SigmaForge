@@ -166,7 +166,10 @@ def cmd_generate(args):
                     rule_yaml, backend,
                     rule_id=args.rule_id, group_name=args.group_name,
                 )
-                print(output)
+                if isinstance(output, dict) and output.get("supported") is False:
+                    print_error(f"Wazuh conversion unsupported: {output.get('reason')}")
+                else:
+                    print(output)
             elif backend in ("dac_json", "qradar"):
                 print(SIEMConverter.convert(rule_yaml, backend))
             else:
@@ -224,7 +227,10 @@ def cmd_convert(args):
                     rule_yaml, backend,
                     rule_id=args.rule_id, group_name=args.group_name,
                 )
-                print(output)
+                if isinstance(output, dict) and output.get("supported") is False:
+                    print_error(f"Wazuh conversion unsupported: {output.get('reason')}")
+                else:
+                    print(output)
             elif backend in ("dac_json", "qradar"):
                 print(SIEMConverter.convert(rule_yaml, backend))
             else:
